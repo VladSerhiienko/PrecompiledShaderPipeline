@@ -1,0 +1,130 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake/PrecompiledShaderPipeline(Darwin/Xcode)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-G", "Xcode",
+                "-H.", "-Bbuild_appleclang_xcode",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+       
+        {
+            "label": "CMake/Viewer(Windows/VS2017)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-G",
+                "\"'Visual Studio 15 2017 Win64'\"",
+                "-B${workspaceFolder}/build_msvc",
+                "-H${workspaceFolder}",
+                "-DBUILD_FOLDER_SUFFIX:STRING=build_msvc"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "CMake/Viewer(Darwin/Xcode/Vk)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-G", "Xcode",
+                "-H.", "-Bbuild_appleclang_xcode",
+                "-DVIEWER_DOWNLOAD_AND_USE_VULKAN_SDK:BOOL=TRUE",
+                // "-DMOLTENVK_SDK_PATH=${workspaceFolder}/dependencies/MoltenVK",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "CMake/Viewer(Darwin/Xcode)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-G", "Xcode",
+                "-H.", "-Bbuild_appleclang_xcode",
+                "-DMOLTENVK_SDK_PATH=${workspaceFolder}/dependencies/MoltenVK",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "ShaderPipeline/CSO(Darwin/Xcode)",
+            "type": "shell",
+            "command": "./ShaderPipeline",
+            "args": [
+                "--assets-folder", "\"../../assets/**\"",
+                "--cso-json-file", "../../assets/shaders/Viewer.cso.json",
+                "--cso-file", "../../assets/shaders/Viewer.cso"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build_appleclang_xcode/Release"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "ShaderPipeline/CSO(VS2017)",
+            "type": "shell",
+            "command": "./ShaderPipeline.exe",
+            "args": [
+                "--assets-folder", "\"../../assets/**\"",
+                "--cso-json-file", "../../assets/shaders/Viewer.cso.json",
+                "--cso-file", "../../assets/shaders/Viewer.cso"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build_msvc/Debug"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Python/ShaderTool(Darwin/Xcode)",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "git-sync-deps",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/dependencies/shaderc/utils/"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": [
+                "CMake/Viewer(Darwin/Xcode)"
+            ]
+        }
+    ]
+}
