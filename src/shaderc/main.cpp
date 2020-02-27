@@ -247,14 +247,14 @@ ShaderCompilerMacroDefinitionCollection GetMacroGroup( const json& groupJson ) {
     return group;
 }
 
-flatbuffers::Offset< csofb::CompiledShaderFb > CompileShaderVariant(
+flatbuffers::Offset< cso::PrecompiledShader > CompileShaderVariant(
     flatbuffers::FlatBufferBuilder&             builder,
     const apemode::shp::IShaderCompiler&        shaderCompiler,
     std::map< std::string, std::string >        macroDefinitions,
     const std::string&                          shaderType,
     std::string                                 srcFile,
     const std::string&                          outputFolder ) {
-    flatbuffers::Offset< csofb::CompiledShaderFb > csoOffset{};
+    flatbuffers::Offset< cso::PrecompiledShader > csoOffset{};
 
     std::string macrosString = GetMacrosString( macroDefinitions );
 
@@ -262,7 +262,7 @@ flatbuffers::Offset< csofb::CompiledShaderFb > CompileShaderVariant(
     concreteMacros.Init( std::move( macroDefinitions ) );
 
     apemode::shp::IShaderCompiler::EShaderType eShaderType   = GetShaderType( shaderType );
-    csofb::EShaderType                         eShaderTypeFb = csofb::EShaderType( eShaderType );
+    cso::EShaderType                         eShaderTypeFb = cso::EShaderType( eShaderType );
 
     ShaderCompilerIncludedFileSet includedFileSet;
     if ( auto compiledShader = shaderCompiler.Compile( srcFile,
@@ -284,7 +284,7 @@ flatbuffers::Offset< csofb::CompiledShaderFb > CompileShaderVariant(
         flatbuffers::Offset< flatbuffers::Vector< uint32_t > > spvOffsetFb{};
         spvOffsetFb = builder.CreateVector( spv );
 
-        csoOffset = csofb::CreateCompiledShaderFb( builder, assetOffsetFb, macrosOffsetFb, eShaderTypeFb, spvOffsetFb );
+        csoOffset = cso::CreatePrecompiledShader( builder, assetOffsetFb, macrosOffsetFb, eShaderTypeFb, spvOffsetFb );
 
         ReplaceAll( macrosString, ".", "-" );
         ReplaceAll( macrosString, ";", "+" );
@@ -321,7 +321,7 @@ flatbuffers::Offset< csofb::CompiledShaderFb > CompileShaderVariant(
     return csoOffset;
 }
 
-void CompileShaderVariantsRecursively( std::vector< flatbuffers::Offset< csofb::CompiledShaderFb > > csoOffsets,
+void CompileShaderVariantsRecursively( std::vector< flatbuffers::Offset< cso::PrecompiledShader > > csoOffsets,
                                        flatbuffers::FlatBufferBuilder&                               builder,
                                        const apemode::shp::IShaderCompiler&                          shaderCompiler,
                                        const ShaderCompilerMacroGroupCollection&                     macroGroups,
@@ -370,7 +370,7 @@ void CompileShaderVariantsRecursively( std::vector< flatbuffers::Offset< csofb::
     }
 }
 
-void CompileShaderVariantsRecursively( std::vector< flatbuffers::Offset< csofb::CompiledShaderFb > > csoOffsets,
+void CompileShaderVariantsRecursively( std::vector< flatbuffers::Offset< cso::PrecompiledShader > > csoOffsets,
                                        flatbuffers::FlatBufferBuilder&                               builder,
                                        const apemode::shp::IShaderCompiler&                          shaderCompiler,
                                        const ShaderCompilerMacroGroupCollection&                     macroGroups,
@@ -382,19 +382,19 @@ void CompileShaderVariantsRecursively( std::vector< flatbuffers::Offset< csofb::
         csoOffsets, builder, shaderCompiler, macroGroups, 0, shaderType, srcFile, outputFolder, macroIndices );
 }
 
-std::vector< flatbuffers::Offset< csofb::CompiledShaderFb > > CompileShader(
+std::vector< flatbuffers::Offset< cso::PrecompiledShader > > CompileShader(
     flatbuffers::FlatBufferBuilder&                builder,
     const apemode::platform::shared::AssetManager& assetManager,
     apemode::shp::IShaderCompiler&                 shaderCompiler,
     const json&                                    commandJson,
     const std::string&                             outputFolder ) {
-    std::vector< flatbuffers::Offset< csofb::CompiledShaderFb > > csoOffsets;
+    std::vector< flatbuffers::Offset< cso::PrecompiledShader > > csoOffsets;
 
     assert( commandJson[ "srcFile" ].is_string( ) );
     std::string srcFile = commandJson[ "srcFile" ].get< std::string >( );
     apemode::LogInfo( "srcFile: {}", srcFile.c_str( ) );
 
-    flatbuffers::Offset< csofb::CompiledShaderFb > csoOffset{};
+    flatbuffers::Offset< cso::PrecompiledShader > csoOffset{};
     if ( auto acquiredSrcFile = assetManager.Acquire( srcFile.c_str( ) ) ) {
         apemode::LogInfo( "assetId: {}", acquiredSrcFile->GetId( ) );
 
@@ -521,11 +521,11 @@ int main( int argc, char** argv ) {
     shaderCompiler->SetShaderFeedbackWriter( &shaderFeedbackWriter );
 
     flatbuffers::FlatBufferBuilder builder;
-    std::vector< flatbuffers::Offset< csofb::CompiledShaderFb > > csoOffsets;
+    std::vector< flatbuffers::Offset< cso::PrecompiledShader > > csoOffsets;
 
     const json& commandsJson = csoJson[ "commands" ];
     for ( const auto& commandJson : commandsJson ) {
-        std::vector< flatbuffers::Offset< csofb::CompiledShaderFb > > csoOffsets =
+        std::vector< flatbuffers::Offset< cso::PrecompiledShader > > csoOffsets =
             CompileShader( builder, assetManager, *shaderCompiler, commandJson, outputFolder );
 
         for ( auto& csoOffset : csoOffsets ) {
@@ -535,16 +535,16 @@ int main( int argc, char** argv ) {
         }
     }
 
-    flatbuffers::Offset< flatbuffers::Vector< flatbuffers::Offset< csofb::CompiledShaderFb > > > csosOffset;
+    flatbuffers::Offset< flatbuffers::Vector< flatbuffers::Offset< cso::PrecompiledShader > > > csosOffset;
     csosOffset = builder.CreateVector( csoOffsets );
 
-    flatbuffers::Offset< csofb::CollectionFb > collectionFb;
-    collectionFb = csofb::CreateCollectionFb( builder, csofb::EVersionFb_Value, csosOffset );
+    flatbuffers::Offset< cso::Collection > Collection;
+    Collection = cso::CreateCollection( builder, cso::EVersion_Value, csosOffset );
 
-    csofb::FinishCollectionFbBuffer( builder, collectionFb );
+    cso::FinishCollectionBuffer( builder, Collection );
 
     flatbuffers::Verifier v( builder.GetBufferPointer( ), builder.GetSize( ) );
-    assert( csofb::VerifyCollectionFbBuffer( v ) );
+    assert( cso::VerifyCollectionBuffer( v ) );
 
     auto csoBuffer     = (const char*) builder.GetBufferPointer( );
     auto csoBufferSize = (size_t) builder.GetSize( );

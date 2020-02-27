@@ -1,7 +1,7 @@
 
-namespace csofb;
+namespace cso;
 
-enum EVersionFb : ubyte {
+enum EVersion : ubyte {
     Value = 0
 }
 
@@ -14,18 +14,23 @@ enum EShaderType : uint {
 	Tese,
 }
 
-table CompiledShaderFb {
+table PrecompiledShader {
     asset : string;
     macros : string;
     shader_type : EShaderType;
-    spv : [uint];
+    IR : [uint];
 }
 
-table CollectionFb {
-	version : EVersionFb;
-    csos : [CompiledShaderFb];
+table Collection {
+	version : EVersion;
+    precompiled_shaders : [PrecompiledShader];
 }
 
-root_type CollectionFb;
-file_extension "shp";
-file_identifier "SHP ";
+root_type Collection;
+file_extension "pshp";
+file_identifier "PSHP";
+
+// sudo easy_install pip  
+// ./assets/flatc -o ./generated -c ./schemes/cso.fbs --gen-mutable
+// cp ./build_appleclang_xcode/shaderc-prefix/src/shaderc-build/third_party/glslang/StandAlone/Release/glslangValidator ./assets/glslangValidator
+// cp build_appleclang_xcode/flatbuffers-prefix/src/flatbuffers-build/Release/flatc assets/flatc
