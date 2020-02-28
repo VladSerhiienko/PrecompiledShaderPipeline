@@ -1,11 +1,14 @@
-
 namespace cso;
 
 enum EVersion : ubyte {
     Value = 0
 }
 
-enum EShaderType : uint {
+enum EIR : ubyte {
+	SPIRV = 0,
+}
+
+enum EShader : uint {
 	Vert,
 	Frag,
 	Comp,
@@ -14,23 +17,50 @@ enum EShaderType : uint {
 	Tese,
 }
 
-table PrecompiledShader {
-    asset : string;
-    macros : string;
-    shader_type : EShaderType;
-    IR : [uint];
+table HashedString {
+    contents : string;
+    crc2 : uint;
 }
 
-table Collection {
+table HashedBuffer {
+    contents : [byte];
+    crc2 : uint;
+}
+
+table CompiledShaderInfo {
+    index : uint;
+    shader : EShader;
+    asset_string_index : uint;
+    definitions_string_index : uint;
+    definitions_map : [uint];
+    included_files_string_indices : [uint];
+}
+
+struct CompiledShader {
+    preprocessed_string_index : uint;
+    preprocessed_opt_string_index : uint;
+    assembly_string_index : uint;
+    compiled_buffer_index : uint;
+	crc2 : uint;
+}
+
+table CompiledShaderCollection {
 	version : EVersion;
-    precompiled_shaders : [PrecompiledShader];
+    compiled_shader_infos : [CompiledShaderInfo];
+    compiled_shaders : [CompiledShader];
+    hashed_strings : [HashedString];
+    hashed_buffers : [HashedString];
 }
 
-root_type Collection;
-file_extension "pshp";
-file_identifier "PSHP";
+root_type CompiledShaderCollection;
+file_extension "csoc";
+file_identifier "CSOC";
 
 // sudo easy_install pip  
+// ./assets/flatc -o ./include -c ./schemes/cso.fbs
 // ./assets/flatc -o ./generated -c ./schemes/cso.fbs --gen-mutable
+// xcodebuild -project ./build_appleclang_xcode/PrecompiledShaderPipeline.xcodeproj -configuration Debug
+// xcodebuild -project ./build_appleclang_xcode/PrecompiledShaderPipeline.xcodeproj -configuration Release
+
 // cp ./build_appleclang_xcode/shaderc-prefix/src/shaderc-build/third_party/glslang/StandAlone/Release/glslangValidator ./assets/glslangValidator
 // cp build_appleclang_xcode/flatbuffers-prefix/src/flatbuffers-build/Release/flatc assets/flatc

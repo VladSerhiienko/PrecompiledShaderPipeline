@@ -8,9 +8,15 @@
 
 namespace cso {
 
-struct PrecompiledShader;
+struct HashedString;
 
-struct Collection;
+struct HashedBuffer;
+
+struct CompiledShaderInfo;
+
+struct CompiledShader;
+
+struct CompiledShaderCollection;
 
 enum EVersion {
   EVersion_Value = 0,
@@ -39,30 +45,57 @@ inline const char *EnumNameEVersion(EVersion e) {
   return EnumNamesEVersion()[index];
 }
 
-enum EShaderType {
-  EShaderType_Vert = 0,
-  EShaderType_Frag = 1,
-  EShaderType_Comp = 2,
-  EShaderType_Geom = 3,
-  EShaderType_Tesc = 4,
-  EShaderType_Tese = 5,
-  EShaderType_MIN = EShaderType_Vert,
-  EShaderType_MAX = EShaderType_Tese
+enum EIR {
+  EIR_SPIRV = 0,
+  EIR_MIN = EIR_SPIRV,
+  EIR_MAX = EIR_SPIRV
 };
 
-inline const EShaderType (&EnumValuesEShaderType())[6] {
-  static const EShaderType values[] = {
-    EShaderType_Vert,
-    EShaderType_Frag,
-    EShaderType_Comp,
-    EShaderType_Geom,
-    EShaderType_Tesc,
-    EShaderType_Tese
+inline const EIR (&EnumValuesEIR())[1] {
+  static const EIR values[] = {
+    EIR_SPIRV
   };
   return values;
 }
 
-inline const char * const *EnumNamesEShaderType() {
+inline const char * const *EnumNamesEIR() {
+  static const char * const names[] = {
+    "SPIRV",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameEIR(EIR e) {
+  if (e < EIR_SPIRV || e > EIR_SPIRV) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesEIR()[index];
+}
+
+enum EShader {
+  EShader_Vert = 0,
+  EShader_Frag = 1,
+  EShader_Comp = 2,
+  EShader_Geom = 3,
+  EShader_Tesc = 4,
+  EShader_Tese = 5,
+  EShader_MIN = EShader_Vert,
+  EShader_MAX = EShader_Tese
+};
+
+inline const EShader (&EnumValuesEShader())[6] {
+  static const EShader values[] = {
+    EShader_Vert,
+    EShader_Frag,
+    EShader_Comp,
+    EShader_Geom,
+    EShader_Tesc,
+    EShader_Tese
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesEShader() {
   static const char * const names[] = {
     "Vert",
     "Frag",
@@ -75,118 +108,289 @@ inline const char * const *EnumNamesEShaderType() {
   return names;
 }
 
-inline const char *EnumNameEShaderType(EShaderType e) {
-  if (e < EShaderType_Vert || e > EShaderType_Tese) return "";
+inline const char *EnumNameEShader(EShader e) {
+  if (e < EShader_Vert || e > EShader_Tese) return "";
   const size_t index = static_cast<size_t>(e);
-  return EnumNamesEShaderType()[index];
+  return EnumNamesEShader()[index];
 }
 
-struct PrecompiledShader FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t preprocessed_string_index_;
+  uint32_t preprocessed_opt_string_index_;
+  uint32_t assembly_string_index_;
+  uint32_t compiled_buffer_index_;
+  uint32_t crc2_;
+
+ public:
+  CompiledShader() {
+    memset(static_cast<void *>(this), 0, sizeof(CompiledShader));
+  }
+  CompiledShader(uint32_t _preprocessed_string_index, uint32_t _preprocessed_opt_string_index, uint32_t _assembly_string_index, uint32_t _compiled_buffer_index, uint32_t _crc2)
+      : preprocessed_string_index_(flatbuffers::EndianScalar(_preprocessed_string_index)),
+        preprocessed_opt_string_index_(flatbuffers::EndianScalar(_preprocessed_opt_string_index)),
+        assembly_string_index_(flatbuffers::EndianScalar(_assembly_string_index)),
+        compiled_buffer_index_(flatbuffers::EndianScalar(_compiled_buffer_index)),
+        crc2_(flatbuffers::EndianScalar(_crc2)) {
+  }
+  uint32_t preprocessed_string_index() const {
+    return flatbuffers::EndianScalar(preprocessed_string_index_);
+  }
+  void mutate_preprocessed_string_index(uint32_t _preprocessed_string_index) {
+    flatbuffers::WriteScalar(&preprocessed_string_index_, _preprocessed_string_index);
+  }
+  uint32_t preprocessed_opt_string_index() const {
+    return flatbuffers::EndianScalar(preprocessed_opt_string_index_);
+  }
+  void mutate_preprocessed_opt_string_index(uint32_t _preprocessed_opt_string_index) {
+    flatbuffers::WriteScalar(&preprocessed_opt_string_index_, _preprocessed_opt_string_index);
+  }
+  uint32_t assembly_string_index() const {
+    return flatbuffers::EndianScalar(assembly_string_index_);
+  }
+  void mutate_assembly_string_index(uint32_t _assembly_string_index) {
+    flatbuffers::WriteScalar(&assembly_string_index_, _assembly_string_index);
+  }
+  uint32_t compiled_buffer_index() const {
+    return flatbuffers::EndianScalar(compiled_buffer_index_);
+  }
+  void mutate_compiled_buffer_index(uint32_t _compiled_buffer_index) {
+    flatbuffers::WriteScalar(&compiled_buffer_index_, _compiled_buffer_index);
+  }
+  uint32_t crc2() const {
+    return flatbuffers::EndianScalar(crc2_);
+  }
+  void mutate_crc2(uint32_t _crc2) {
+    flatbuffers::WriteScalar(&crc2_, _crc2);
+  }
+};
+FLATBUFFERS_STRUCT_END(CompiledShader, 20);
+
+struct HashedString FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ASSET = 4,
-    VT_MACROS = 6,
-    VT_SHADER_TYPE = 8,
-    VT_IR = 10
+    VT_CONTENTS = 4,
+    VT_CRC2 = 6
   };
-  const flatbuffers::String *asset() const {
-    return GetPointer<const flatbuffers::String *>(VT_ASSET);
+  const flatbuffers::String *contents() const {
+    return GetPointer<const flatbuffers::String *>(VT_CONTENTS);
   }
-  flatbuffers::String *mutable_asset() {
-    return GetPointer<flatbuffers::String *>(VT_ASSET);
+  flatbuffers::String *mutable_contents() {
+    return GetPointer<flatbuffers::String *>(VT_CONTENTS);
   }
-  const flatbuffers::String *macros() const {
-    return GetPointer<const flatbuffers::String *>(VT_MACROS);
+  uint32_t crc2() const {
+    return GetField<uint32_t>(VT_CRC2, 0);
   }
-  flatbuffers::String *mutable_macros() {
-    return GetPointer<flatbuffers::String *>(VT_MACROS);
-  }
-  EShaderType shader_type() const {
-    return static_cast<EShaderType>(GetField<uint32_t>(VT_SHADER_TYPE, 0));
-  }
-  bool mutate_shader_type(EShaderType _shader_type) {
-    return SetField<uint32_t>(VT_SHADER_TYPE, static_cast<uint32_t>(_shader_type), 0);
-  }
-  const flatbuffers::Vector<uint32_t> *IR() const {
-    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_IR);
-  }
-  flatbuffers::Vector<uint32_t> *mutable_IR() {
-    return GetPointer<flatbuffers::Vector<uint32_t> *>(VT_IR);
+  bool mutate_crc2(uint32_t _crc2) {
+    return SetField<uint32_t>(VT_CRC2, _crc2, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_ASSET) &&
-           verifier.VerifyString(asset()) &&
-           VerifyOffset(verifier, VT_MACROS) &&
-           verifier.VerifyString(macros()) &&
-           VerifyField<uint32_t>(verifier, VT_SHADER_TYPE) &&
-           VerifyOffset(verifier, VT_IR) &&
-           verifier.VerifyVector(IR()) &&
+           VerifyOffset(verifier, VT_CONTENTS) &&
+           verifier.VerifyString(contents()) &&
+           VerifyField<uint32_t>(verifier, VT_CRC2) &&
            verifier.EndTable();
   }
 };
 
-struct PrecompiledShaderBuilder {
+struct HashedStringBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_asset(flatbuffers::Offset<flatbuffers::String> asset) {
-    fbb_.AddOffset(PrecompiledShader::VT_ASSET, asset);
+  void add_contents(flatbuffers::Offset<flatbuffers::String> contents) {
+    fbb_.AddOffset(HashedString::VT_CONTENTS, contents);
   }
-  void add_macros(flatbuffers::Offset<flatbuffers::String> macros) {
-    fbb_.AddOffset(PrecompiledShader::VT_MACROS, macros);
+  void add_crc2(uint32_t crc2) {
+    fbb_.AddElement<uint32_t>(HashedString::VT_CRC2, crc2, 0);
   }
-  void add_shader_type(EShaderType shader_type) {
-    fbb_.AddElement<uint32_t>(PrecompiledShader::VT_SHADER_TYPE, static_cast<uint32_t>(shader_type), 0);
-  }
-  void add_IR(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> IR) {
-    fbb_.AddOffset(PrecompiledShader::VT_IR, IR);
-  }
-  explicit PrecompiledShaderBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit HashedStringBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  PrecompiledShaderBuilder &operator=(const PrecompiledShaderBuilder &);
-  flatbuffers::Offset<PrecompiledShader> Finish() {
+  HashedStringBuilder &operator=(const HashedStringBuilder &);
+  flatbuffers::Offset<HashedString> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<PrecompiledShader>(end);
+    auto o = flatbuffers::Offset<HashedString>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<PrecompiledShader> CreatePrecompiledShader(
+inline flatbuffers::Offset<HashedString> CreateHashedString(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> asset = 0,
-    flatbuffers::Offset<flatbuffers::String> macros = 0,
-    EShaderType shader_type = EShaderType_Vert,
-    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> IR = 0) {
-  PrecompiledShaderBuilder builder_(_fbb);
-  builder_.add_IR(IR);
-  builder_.add_shader_type(shader_type);
-  builder_.add_macros(macros);
-  builder_.add_asset(asset);
+    flatbuffers::Offset<flatbuffers::String> contents = 0,
+    uint32_t crc2 = 0) {
+  HashedStringBuilder builder_(_fbb);
+  builder_.add_crc2(crc2);
+  builder_.add_contents(contents);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<PrecompiledShader> CreatePrecompiledShaderDirect(
+inline flatbuffers::Offset<HashedString> CreateHashedStringDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    const char *asset = nullptr,
-    const char *macros = nullptr,
-    EShaderType shader_type = EShaderType_Vert,
-    const std::vector<uint32_t> *IR = nullptr) {
-  auto asset__ = asset ? _fbb.CreateString(asset) : 0;
-  auto macros__ = macros ? _fbb.CreateString(macros) : 0;
-  auto IR__ = IR ? _fbb.CreateVector<uint32_t>(*IR) : 0;
-  return cso::CreatePrecompiledShader(
+    const char *contents = nullptr,
+    uint32_t crc2 = 0) {
+  auto contents__ = contents ? _fbb.CreateString(contents) : 0;
+  return cso::CreateHashedString(
       _fbb,
-      asset__,
-      macros__,
-      shader_type,
-      IR__);
+      contents__,
+      crc2);
 }
 
-struct Collection FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct HashedBuffer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_CONTENTS = 4,
+    VT_CRC2 = 6
+  };
+  const flatbuffers::Vector<int8_t> *contents() const {
+    return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_CONTENTS);
+  }
+  flatbuffers::Vector<int8_t> *mutable_contents() {
+    return GetPointer<flatbuffers::Vector<int8_t> *>(VT_CONTENTS);
+  }
+  uint32_t crc2() const {
+    return GetField<uint32_t>(VT_CRC2, 0);
+  }
+  bool mutate_crc2(uint32_t _crc2) {
+    return SetField<uint32_t>(VT_CRC2, _crc2, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_CONTENTS) &&
+           verifier.VerifyVector(contents()) &&
+           VerifyField<uint32_t>(verifier, VT_CRC2) &&
+           verifier.EndTable();
+  }
+};
+
+struct HashedBufferBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_contents(flatbuffers::Offset<flatbuffers::Vector<int8_t>> contents) {
+    fbb_.AddOffset(HashedBuffer::VT_CONTENTS, contents);
+  }
+  void add_crc2(uint32_t crc2) {
+    fbb_.AddElement<uint32_t>(HashedBuffer::VT_CRC2, crc2, 0);
+  }
+  explicit HashedBufferBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  HashedBufferBuilder &operator=(const HashedBufferBuilder &);
+  flatbuffers::Offset<HashedBuffer> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<HashedBuffer>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<HashedBuffer> CreateHashedBuffer(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<int8_t>> contents = 0,
+    uint32_t crc2 = 0) {
+  HashedBufferBuilder builder_(_fbb);
+  builder_.add_crc2(crc2);
+  builder_.add_contents(contents);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<HashedBuffer> CreateHashedBufferDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<int8_t> *contents = nullptr,
+    uint32_t crc2 = 0) {
+  auto contents__ = contents ? _fbb.CreateVector<int8_t>(*contents) : 0;
+  return cso::CreateHashedBuffer(
+      _fbb,
+      contents__,
+      crc2);
+}
+
+struct CompiledShaderInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INDEX = 4,
+    VT_SHADER = 6,
+    VT_ASSET_STRING_INDEX = 8,
+    VT_MACROS_STRING_INDEX = 10
+  };
+  uint32_t index() const {
+    return GetField<uint32_t>(VT_INDEX, 0);
+  }
+  bool mutate_index(uint32_t _index) {
+    return SetField<uint32_t>(VT_INDEX, _index, 0);
+  }
+  EShader shader() const {
+    return static_cast<EShader>(GetField<uint32_t>(VT_SHADER, 0));
+  }
+  bool mutate_shader(EShader _shader) {
+    return SetField<uint32_t>(VT_SHADER, static_cast<uint32_t>(_shader), 0);
+  }
+  uint32_t asset_string_index() const {
+    return GetField<uint32_t>(VT_ASSET_STRING_INDEX, 0);
+  }
+  bool mutate_asset_string_index(uint32_t _asset_string_index) {
+    return SetField<uint32_t>(VT_ASSET_STRING_INDEX, _asset_string_index, 0);
+  }
+  uint32_t macros_string_index() const {
+    return GetField<uint32_t>(VT_MACROS_STRING_INDEX, 0);
+  }
+  bool mutate_macros_string_index(uint32_t _macros_string_index) {
+    return SetField<uint32_t>(VT_MACROS_STRING_INDEX, _macros_string_index, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_INDEX) &&
+           VerifyField<uint32_t>(verifier, VT_SHADER) &&
+           VerifyField<uint32_t>(verifier, VT_ASSET_STRING_INDEX) &&
+           VerifyField<uint32_t>(verifier, VT_MACROS_STRING_INDEX) &&
+           verifier.EndTable();
+  }
+};
+
+struct CompiledShaderInfoBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_index(uint32_t index) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_INDEX, index, 0);
+  }
+  void add_shader(EShader shader) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_SHADER, static_cast<uint32_t>(shader), 0);
+  }
+  void add_asset_string_index(uint32_t asset_string_index) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_ASSET_STRING_INDEX, asset_string_index, 0);
+  }
+  void add_macros_string_index(uint32_t macros_string_index) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_MACROS_STRING_INDEX, macros_string_index, 0);
+  }
+  explicit CompiledShaderInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  CompiledShaderInfoBuilder &operator=(const CompiledShaderInfoBuilder &);
+  flatbuffers::Offset<CompiledShaderInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<CompiledShaderInfo>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<CompiledShaderInfo> CreateCompiledShaderInfo(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t index = 0,
+    EShader shader = EShader_Vert,
+    uint32_t asset_string_index = 0,
+    uint32_t macros_string_index = 0) {
+  CompiledShaderInfoBuilder builder_(_fbb);
+  builder_.add_macros_string_index(macros_string_index);
+  builder_.add_asset_string_index(asset_string_index);
+  builder_.add_shader(shader);
+  builder_.add_index(index);
+  return builder_.Finish();
+}
+
+struct CompiledShaderCollection FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
-    VT_PRECOMPILED_SHADERS = 6
+    VT_COMPILED_SHADER_INFOS = 6,
+    VT_COMPILED_SHADERS = 8,
+    VT_HASHED_STRINGS = 10,
+    VT_HASHED_BUFFERS = 12
   };
   EVersion version() const {
     return static_cast<EVersion>(GetField<uint8_t>(VT_VERSION, 0));
@@ -194,109 +398,159 @@ struct Collection FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool mutate_version(EVersion _version) {
     return SetField<uint8_t>(VT_VERSION, static_cast<uint8_t>(_version), 0);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<PrecompiledShader>> *precompiled_shaders() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<PrecompiledShader>> *>(VT_PRECOMPILED_SHADERS);
+  const flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>> *compiled_shader_infos() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>> *>(VT_COMPILED_SHADER_INFOS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<PrecompiledShader>> *mutable_precompiled_shaders() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<PrecompiledShader>> *>(VT_PRECOMPILED_SHADERS);
+  flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>> *mutable_compiled_shader_infos() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>> *>(VT_COMPILED_SHADER_INFOS);
+  }
+  const flatbuffers::Vector<const CompiledShader *> *compiled_shaders() const {
+    return GetPointer<const flatbuffers::Vector<const CompiledShader *> *>(VT_COMPILED_SHADERS);
+  }
+  flatbuffers::Vector<const CompiledShader *> *mutable_compiled_shaders() {
+    return GetPointer<flatbuffers::Vector<const CompiledShader *> *>(VT_COMPILED_SHADERS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *hashed_strings() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_STRINGS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<HashedString>> *mutable_hashed_strings() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_STRINGS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *hashed_buffers() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_BUFFERS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<HashedString>> *mutable_hashed_buffers() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_BUFFERS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_VERSION) &&
-           VerifyOffset(verifier, VT_PRECOMPILED_SHADERS) &&
-           verifier.VerifyVector(precompiled_shaders()) &&
-           verifier.VerifyVectorOfTables(precompiled_shaders()) &&
+           VerifyOffset(verifier, VT_COMPILED_SHADER_INFOS) &&
+           verifier.VerifyVector(compiled_shader_infos()) &&
+           verifier.VerifyVectorOfTables(compiled_shader_infos()) &&
+           VerifyOffset(verifier, VT_COMPILED_SHADERS) &&
+           verifier.VerifyVector(compiled_shaders()) &&
+           VerifyOffset(verifier, VT_HASHED_STRINGS) &&
+           verifier.VerifyVector(hashed_strings()) &&
+           verifier.VerifyVectorOfTables(hashed_strings()) &&
+           VerifyOffset(verifier, VT_HASHED_BUFFERS) &&
+           verifier.VerifyVector(hashed_buffers()) &&
+           verifier.VerifyVectorOfTables(hashed_buffers()) &&
            verifier.EndTable();
   }
 };
 
-struct CollectionBuilder {
+struct CompiledShaderCollectionBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_version(EVersion version) {
-    fbb_.AddElement<uint8_t>(Collection::VT_VERSION, static_cast<uint8_t>(version), 0);
+    fbb_.AddElement<uint8_t>(CompiledShaderCollection::VT_VERSION, static_cast<uint8_t>(version), 0);
   }
-  void add_precompiled_shaders(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<PrecompiledShader>>> precompiled_shaders) {
-    fbb_.AddOffset(Collection::VT_PRECOMPILED_SHADERS, precompiled_shaders);
+  void add_compiled_shader_infos(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>>> compiled_shader_infos) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_COMPILED_SHADER_INFOS, compiled_shader_infos);
   }
-  explicit CollectionBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  void add_compiled_shaders(flatbuffers::Offset<flatbuffers::Vector<const CompiledShader *>> compiled_shaders) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_COMPILED_SHADERS, compiled_shaders);
+  }
+  void add_hashed_strings(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_strings) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_HASHED_STRINGS, hashed_strings);
+  }
+  void add_hashed_buffers(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_buffers) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_HASHED_BUFFERS, hashed_buffers);
+  }
+  explicit CompiledShaderCollectionBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  CollectionBuilder &operator=(const CollectionBuilder &);
-  flatbuffers::Offset<Collection> Finish() {
+  CompiledShaderCollectionBuilder &operator=(const CompiledShaderCollectionBuilder &);
+  flatbuffers::Offset<CompiledShaderCollection> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Collection>(end);
+    auto o = flatbuffers::Offset<CompiledShaderCollection>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Collection> CreateCollection(
+inline flatbuffers::Offset<CompiledShaderCollection> CreateCompiledShaderCollection(
     flatbuffers::FlatBufferBuilder &_fbb,
     EVersion version = EVersion_Value,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<PrecompiledShader>>> precompiled_shaders = 0) {
-  CollectionBuilder builder_(_fbb);
-  builder_.add_precompiled_shaders(precompiled_shaders);
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>>> compiled_shader_infos = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const CompiledShader *>> compiled_shaders = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_strings = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_buffers = 0) {
+  CompiledShaderCollectionBuilder builder_(_fbb);
+  builder_.add_hashed_buffers(hashed_buffers);
+  builder_.add_hashed_strings(hashed_strings);
+  builder_.add_compiled_shaders(compiled_shaders);
+  builder_.add_compiled_shader_infos(compiled_shader_infos);
   builder_.add_version(version);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Collection> CreateCollectionDirect(
+inline flatbuffers::Offset<CompiledShaderCollection> CreateCompiledShaderCollectionDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     EVersion version = EVersion_Value,
-    const std::vector<flatbuffers::Offset<PrecompiledShader>> *precompiled_shaders = nullptr) {
-  auto precompiled_shaders__ = precompiled_shaders ? _fbb.CreateVector<flatbuffers::Offset<PrecompiledShader>>(*precompiled_shaders) : 0;
-  return cso::CreateCollection(
+    const std::vector<flatbuffers::Offset<CompiledShaderInfo>> *compiled_shader_infos = nullptr,
+    const std::vector<CompiledShader> *compiled_shaders = nullptr,
+    const std::vector<flatbuffers::Offset<HashedString>> *hashed_strings = nullptr,
+    const std::vector<flatbuffers::Offset<HashedString>> *hashed_buffers = nullptr) {
+  auto compiled_shader_infos__ = compiled_shader_infos ? _fbb.CreateVector<flatbuffers::Offset<CompiledShaderInfo>>(*compiled_shader_infos) : 0;
+  auto compiled_shaders__ = compiled_shaders ? _fbb.CreateVectorOfStructs<CompiledShader>(*compiled_shaders) : 0;
+  auto hashed_strings__ = hashed_strings ? _fbb.CreateVector<flatbuffers::Offset<HashedString>>(*hashed_strings) : 0;
+  auto hashed_buffers__ = hashed_buffers ? _fbb.CreateVector<flatbuffers::Offset<HashedString>>(*hashed_buffers) : 0;
+  return cso::CreateCompiledShaderCollection(
       _fbb,
       version,
-      precompiled_shaders__);
+      compiled_shader_infos__,
+      compiled_shaders__,
+      hashed_strings__,
+      hashed_buffers__);
 }
 
-inline const cso::Collection *GetCollection(const void *buf) {
-  return flatbuffers::GetRoot<cso::Collection>(buf);
+inline const cso::CompiledShaderCollection *GetCompiledShaderCollection(const void *buf) {
+  return flatbuffers::GetRoot<cso::CompiledShaderCollection>(buf);
 }
 
-inline const cso::Collection *GetSizePrefixedCollection(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<cso::Collection>(buf);
+inline const cso::CompiledShaderCollection *GetSizePrefixedCompiledShaderCollection(const void *buf) {
+  return flatbuffers::GetSizePrefixedRoot<cso::CompiledShaderCollection>(buf);
 }
 
-inline Collection *GetMutableCollection(void *buf) {
-  return flatbuffers::GetMutableRoot<Collection>(buf);
+inline CompiledShaderCollection *GetMutableCompiledShaderCollection(void *buf) {
+  return flatbuffers::GetMutableRoot<CompiledShaderCollection>(buf);
 }
 
-inline const char *CollectionIdentifier() {
-  return "PSHP";
+inline const char *CompiledShaderCollectionIdentifier() {
+  return "CSOC";
 }
 
-inline bool CollectionBufferHasIdentifier(const void *buf) {
+inline bool CompiledShaderCollectionBufferHasIdentifier(const void *buf) {
   return flatbuffers::BufferHasIdentifier(
-      buf, CollectionIdentifier());
+      buf, CompiledShaderCollectionIdentifier());
 }
 
-inline bool VerifyCollectionBuffer(
+inline bool VerifyCompiledShaderCollectionBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifyBuffer<cso::Collection>(CollectionIdentifier());
+  return verifier.VerifyBuffer<cso::CompiledShaderCollection>(CompiledShaderCollectionIdentifier());
 }
 
-inline bool VerifySizePrefixedCollectionBuffer(
+inline bool VerifySizePrefixedCompiledShaderCollectionBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifySizePrefixedBuffer<cso::Collection>(CollectionIdentifier());
+  return verifier.VerifySizePrefixedBuffer<cso::CompiledShaderCollection>(CompiledShaderCollectionIdentifier());
 }
 
-inline const char *CollectionExtension() {
-  return "pshp";
+inline const char *CompiledShaderCollectionExtension() {
+  return "csoc";
 }
 
-inline void FinishCollectionBuffer(
+inline void FinishCompiledShaderCollectionBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<cso::Collection> root) {
-  fbb.Finish(root, CollectionIdentifier());
+    flatbuffers::Offset<cso::CompiledShaderCollection> root) {
+  fbb.Finish(root, CompiledShaderCollectionIdentifier());
 }
 
-inline void FinishSizePrefixedCollectionBuffer(
+inline void FinishSizePrefixedCompiledShaderCollectionBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<cso::Collection> root) {
-  fbb.FinishSizePrefixed(root, CollectionIdentifier());
+    flatbuffers::Offset<cso::CompiledShaderCollection> root) {
+  fbb.FinishSizePrefixed(root, CompiledShaderCollectionIdentifier());
 }
 
 }  // namespace cso

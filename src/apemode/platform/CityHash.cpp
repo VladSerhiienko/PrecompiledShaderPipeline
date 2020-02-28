@@ -1,7 +1,8 @@
 #include "CityHash.h"
 
-#include <stdlib.h>  // for size_t.
 #include <stdint.h>
+#include <stdlib.h> // for size_t.
+
 #include <utility>
 
 typedef uint8_t uint8;
@@ -9,8 +10,9 @@ typedef uint32_t uint32;
 typedef uint64_t uint64;
 typedef std::pair<uint64, uint64> uint128;
 
+#include <string.h> // for memcpy and memset
+
 #include <algorithm>
-#include <string.h>  // for memcpy and memset
 
 using namespace std;
 
@@ -51,7 +53,7 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 #define uint32_in_expected_order(x) (bswap_32(x))
 #define uint64_in_expected_order(x) (bswap_64(x))
 
-#endif  // __BIG_ENDIAN__
+#endif // __BIG_ENDIAN__
 
 #if !defined(LIKELY)
 #if defined(__GNUC__) || defined(__INTEL_COMPILER)
@@ -61,20 +63,16 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 #endif
 #endif
 
-static uint64 Fetch64(const char *p) {
-    return uint64_in_expected_order(UNALIGNED_LOAD64(p));
-}
+static uint64 Fetch64(const char *p) { return uint64_in_expected_order(UNALIGNED_LOAD64(p)); }
 
-static uint32 Fetch32(const char *p) {
-    return uint32_in_expected_order(UNALIGNED_LOAD32(p));
-}
+static uint32 Fetch32(const char *p) { return uint32_in_expected_order(UNALIGNED_LOAD32(p)); }
 
-inline uint64 Uint128Low64(const uint128& x) { return x.first; }
-inline uint64 Uint128High64(const uint128& x) { return x.second; }
+inline uint64 Uint128Low64(const uint128 &x) { return x.first; }
+inline uint64 Uint128High64(const uint128 &x) { return x.second; }
 
 // Hash 128 input bits down to 64 bits of output.
 // This is intended to be a reasonably good hash function.
-inline uint64 Hash128to64(const uint128& x) {
+inline uint64 Hash128to64(const uint128 &x) {
     // Murmur-inspired hashing.
     const uint64 kMul = 0x9ddfea08eb382d69ULL;
     uint64 a = (Uint128Low64(x) ^ Uint128High64(x)) * kMul;
@@ -101,17 +99,11 @@ static uint64 Rotate(uint64 val, int shift) {
 // Equivalent to Rotate(), but requires the second arg to be non-zero.
 // On x86-64, and probably others, it's possible for this to compile
 // to a single instruction if both args are already in registers.
-static uint64 RotateByAtLeast1(uint64 val, int shift) {
-    return (val >> shift) | (val << (64 - shift));
-}
+static uint64 RotateByAtLeast1(uint64 val, int shift) { return (val >> shift) | (val << (64 - shift)); }
 
-static uint64 ShiftMix(uint64 val) {
-    return val ^ (val >> 47);
-}
+static uint64 ShiftMix(uint64 val) { return val ^ (val >> 47); }
 
-static uint64 HashLen16(uint64 u, uint64 v) {
-    return Hash128to64(uint128(u, v));
-}
+static uint64 HashLen16(uint64 u, uint64 v) { return Hash128to64(uint128(u, v)); }
 
 static uint64 HashLen0to16(const char *s, size_t len) {
     if (len > 8ull) {
@@ -141,14 +133,12 @@ static uint64 HashLen17to32(const char *s, size_t len) {
     uint64 b = Fetch64(s + 8);
     uint64 c = Fetch64(s + len - 8) * k2;
     uint64 d = Fetch64(s + len - 16) * k0;
-    return HashLen16(Rotate(a - b, 43) + Rotate(c, 30) + d,
-        a + Rotate(b ^ k3, 20) - c + len);
+    return HashLen16(Rotate(a - b, 43) + Rotate(c, 30) + d, a + Rotate(b ^ k3, 20) - c + len);
 }
 
 // Return a 16-byte hash for 48 bytes.  Quick and dirty.
 // Callers do best to use "random-looking" values for a and b.
-static pair<uint64, uint64> WeakHashLen32WithSeeds(
-    uint64 w, uint64 x, uint64 y, uint64 z, uint64 a, uint64 b) {
+static pair<uint64, uint64> WeakHashLen32WithSeeds(uint64 w, uint64 x, uint64 y, uint64 z, uint64 a, uint64 b) {
     a += w;
     b = Rotate(b + a + z, 21);
     uint64 c = a;
@@ -159,14 +149,8 @@ static pair<uint64, uint64> WeakHashLen32WithSeeds(
 }
 
 // Return a 16-byte hash for s[0] ... s[31], a, and b.  Quick and dirty.
-static pair<uint64, uint64> WeakHashLen32WithSeeds(
-    const char* s, uint64 a, uint64 b) {
-    return WeakHashLen32WithSeeds(Fetch64(s),
-        Fetch64(s + 8),
-        Fetch64(s + 16),
-        Fetch64(s + 24),
-        a,
-        b);
+static pair<uint64, uint64> WeakHashLen32WithSeeds(const char *s, uint64 a, uint64 b) {
+    return WeakHashLen32WithSeeds(Fetch64(s), Fetch64(s + 8), Fetch64(s + 16), Fetch64(s + 24), a, b);
 }
 
 // Return an 8-byte hash for 33 to 64 bytes.
@@ -193,17 +177,14 @@ static uint64 HashLen33to64(const char *s, size_t len) {
     return ShiftMix(r * k0 + vs) * k2;
 }
 
-unsigned long long apemode::CityHash64(const char * s, unsigned long long len)
-{
+unsigned long long apemode::CityHash64(const char *s, unsigned long long len) {
     if (len <= 32) {
         if (len <= 16) {
             return HashLen0to16(s, len);
-        }
-        else {
+        } else {
             return HashLen17to32(s, len);
         }
-    }
-    else if (len <= 64) {
+    } else if (len <= 64) {
         return HashLen33to64(s, len);
     }
 
@@ -230,18 +211,15 @@ unsigned long long apemode::CityHash64(const char * s, unsigned long long len)
         s += 64;
         len -= 64;
     } while (len != 0);
-    return HashLen16(HashLen16(v.first, w.first) + ShiftMix(y) * k1 + z,
-        HashLen16(v.second, w.second) + x);
+    return HashLen16(HashLen16(v.first, w.first) + ShiftMix(y) * k1 + z, HashLen16(v.second, w.second) + x);
 }
 
 // Hash 128 input bits down to 64 bits of output.
 // This is intended to be a reasonably good hash function.
 unsigned long long apemode::CityHash128to64(unsigned long long a, unsigned long long b) {
-
     if (a && b)
         // Murmur-inspired hashing.
         return ::Hash128to64(uint128(a, b));
     else
         return a ? a : b;
 }
-
