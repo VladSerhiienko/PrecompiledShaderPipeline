@@ -19,29 +19,30 @@ enum EShader : uint {
 
 table HashedString {
     contents : string;
-    crc2 : uint;
+    hash : uint;
 }
 
 table HashedBuffer {
     contents : [byte];
-    crc2 : uint;
+    hash : uint;
 }
 
 table CompiledShaderInfo {
-    index : uint;
-    shader : EShader;
+    type : EShader;
+    compiled_shader_index : uint;
     asset_string_index : uint;
     definitions_string_index : uint;
-    definitions_map : [uint];
+    definitions_string_indices : [uint];
     included_files_string_indices : [uint];
+	hash : uint;
 }
 
 struct CompiledShader {
     preprocessed_string_index : uint;
-    preprocessed_opt_string_index : uint;
     assembly_string_index : uint;
     compiled_buffer_index : uint;
-	crc2 : uint;
+    type : EIR;
+	hash : uint;
 }
 
 table CompiledShaderCollection {
@@ -49,18 +50,42 @@ table CompiledShaderCollection {
     compiled_shader_infos : [CompiledShaderInfo];
     compiled_shaders : [CompiledShader];
     hashed_strings : [HashedString];
-    hashed_buffers : [HashedString];
+    hashed_buffers : [HashedBuffer];
 }
 
 root_type CompiledShaderCollection;
 file_extension "csoc";
 file_identifier "CSOC";
 
-// sudo easy_install pip  
-// ./assets/flatc -o ./include -c ./schemes/cso.fbs
-// ./assets/flatc -o ./generated -c ./schemes/cso.fbs --gen-mutable
-// xcodebuild -project ./build_appleclang_xcode/PrecompiledShaderPipeline.xcodeproj -configuration Debug
-// xcodebuild -project ./build_appleclang_xcode/PrecompiledShaderPipeline.xcodeproj -configuration Release
+/*
 
-// cp ./build_appleclang_xcode/shaderc-prefix/src/shaderc-build/third_party/glslang/StandAlone/Release/glslangValidator ./assets/glslangValidator
-// cp build_appleclang_xcode/flatbuffers-prefix/src/flatbuffers-build/Release/flatc assets/flatc
+sudo easy_install pip
+./bin/macOS/flatc -o ./include -c ./schemes/cso.fbs
+./bin/macOS/flatc -o ./generated -c ./schemes/cso.fbs --gen-mutable
+
+cmake -G Xcode -H. -Bbuild_appleclang_xcode
+xcodebuild -project ./build_appleclang_xcode/PrecompiledShaderPipeline.xcodeproj -configuration Release
+rm -rf bin
+mkdir bin
+mkdir bin/macOS
+cp ./build_appleclang_xcode/Release/PrecompiledShaderPipeline ./bin/macOS/PrecompiledShaderPipeline
+cp ./build_appleclang_xcode/flatbuffers-prefix/src/flatbuffers-build/Release/flatc ./bin/macOS/flatc
+cp ./build_appleclang_xcode/shaderc-prefix/src/shaderc-build/third_party/glslang/StandAlone/Release/glslangValidator ./bin/macOS/glslangValidator
+
+
+./bin/macOS/PrecompiledShaderPipeline \
+    --mode build-collection \
+    --assets-folder "./assets/**" \
+    --cso-json-file "./assets/shaders/Viewer.cso.json" \
+    --cso-file "./assets/shaders/Viewer.cso"
+
+./bin/macOS/flatc -o ./include -c ./schemes/cso.fbs
+./bin/macOS/flatc -o ./generated -c ./schemes/cso.fbs --gen-mutable
+
+mkdir bin
+mkdir bin/macOS
+cp ./build_appleclang_xcode/Release/PrecompiledShaderPipeline ./bin/macOS/PrecompiledShaderPipeline
+cp ./build_appleclang_xcode/flatbuffers-prefix/src/flatbuffers-build/Release/flatc ./bin/macOS/flatc
+cp ./build_appleclang_xcode/shaderc-prefix/src/shaderc-build/third_party/glslang/StandAlone/Release/glslangValidator ./bin/macOS/glslangValidator
+
+*/

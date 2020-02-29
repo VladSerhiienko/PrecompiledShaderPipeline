@@ -339,7 +339,7 @@ endif()
 #
 
 add_executable(
-    ShaderPipeline
+    PrecompiledShaderPipeline
     ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.Vulkan.h
     ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.Vulkan.cpp
     ${CMAKE_SOURCE_DIR}/src/shaderc/main.cpp
@@ -364,7 +364,7 @@ add_executable(
     )
 
 target_include_directories(
-    ShaderPipeline
+    PrecompiledShaderPipeline
     PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/generated
@@ -389,7 +389,7 @@ target_include_directories(
 
 
 add_dependencies(
-    ShaderPipeline
+    PrecompiledShaderPipeline
     shaderc
     json
     flatbuffers
@@ -402,7 +402,7 @@ add_dependencies(
 
 if (APPLE )
     target_link_libraries(
-        ShaderPipeline
+        PrecompiledShaderPipeline
 
         # debug ${eastl_binary_dir}/Debug/libEASTL.a
         # debug ${eastl_binary_dir}/test/packages/EAStdC/Debug/libEAStdC.a
@@ -428,7 +428,7 @@ if (APPLE )
         )
 elseif (WIN32)
     target_link_libraries(
-        ShaderPipeline
+        PrecompiledShaderPipeline
         # ${eastl_binary_dir}${CONFIGURATION_SUFFIX}/EASTL.lib
         # ${eastl_binary_dir}/test/packages/EAStdC${CONFIGURATION_SUFFIX}/EAStdC.lib
         ${shaderc_binary_dir}/libshaderc${CONFIGURATION_SUFFIX}/shaderc_combined.lib
@@ -436,7 +436,7 @@ elseif (WIN32)
         )
 elseif (UNIX)
     target_link_libraries(
-        ShaderPipeline
+        PrecompiledShaderPipeline
 
         # ${eastl_binary_dir}${CONFIGURATION_SUFFIX}/libEASTL.a
         # ${eastl_binary_dir}/test/packages/EAStdC${CONFIGURATION_SUFFIX}/libEAStdC.a
@@ -450,7 +450,7 @@ elseif (UNIX)
 endif ()
 
 set_target_properties(
-    ShaderPipeline
+    PrecompiledShaderPipeline
     PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY
     "$(OutDir)"

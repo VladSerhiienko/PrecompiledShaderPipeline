@@ -1,5 +1,6 @@
 
 #include <apemode/platform/AppState.h>
+#include <apemode/platform/CityHash.h>
 #include <apemode/platform/shared/AssetManager.h>
 #include <flatbuffers/util.h>
 
@@ -41,10 +42,29 @@ static constexpr unsigned int crc_table[256] = {
     0x40df0b66, 0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9, 0xbdbdf21c, 0xcabac28a, 0x53b39330,
     0x24b4a3a6, 0xbad03605, 0xcdd70693, 0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
     0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d};
-constexpr uint32_t crc32(std::string_view str) {
+
+constexpr uint32_t CRC32(std::string_view str) {
     uint32_t crc = 0xffffffff;
     for (auto c : str) crc = (crc >> 8) ^ crc_table[(crc ^ c) & 0xff];
     return crc ^ 0xffffffff;
+}
+
+constexpr uint32_t Rotate32(uint32_t val, int shift) {
+    // Avoid shifting by 32: doing so yields an undefined result.
+    return shift == 0 ? val : ((val >> shift) | (val << (32 - shift)));
+}
+
+constexpr uint32_t Mur(uint32_t a, uint32_t h) {
+    constexpr uint32_t c1 = 0xcc9e2d51;
+    constexpr uint32_t c2 = 0x1b873593;
+
+    // Helper from Murmur3 for combining two 32-bit values.
+    a *= c1;
+    a = Rotate32(a, 17);
+    a *= c2;
+    h ^= a;
+    h = Rotate32(h, 19);
+    return h * 5 + 0xe6546b64;
 }
 
 class HashedString {
@@ -59,7 +79,7 @@ public:
     uint32_t Hash = 0;
 };
 
-class CompiledShader {
+class CompiledShaderVariant {
 public:
     std::string Preprocessed = "";
     std::string Assembly = "";
@@ -71,51 +91,170 @@ public:
     std::map<std::string, std::string> DefinitionMap;
 };
 
-class PreparedCompiledShader {
+class CompiledShader {
 public:
-    uint32_t Preprocessed = 0;
-    uint32_t Assembly = 0;
-    uint32_t Asset = 0;
-    uint32_t Definitions = 0;
-    uint32_t Compiled = 0;
+    uint32_t PreprocessedIndex = 0;
+    uint32_t AssemblyIndex = 0;
+    uint32_t CompiledIndex = 0;
+    uint32_t Hash = 0;
+};
+
+class CompiledShaderInfo {
+public:
+    uint32_t AssetIndex = 0;
+    uint32_t CompiledShaderIndex = 0;
+    uint32_t DefinitionsIndex = 0;
     cso::EShader Type = cso::EShader::EShader_MAX;
-    std::vector<uint32_t> IncludedFiles;
-    std::vector<uint32_t> DefinitionMap;
+    std::vector<uint32_t> IncludedFileIndices;
+    std::vector<uint32_t> DefinitionIndices;
+    uint32_t Hash = 0;
 };
 
 class CompiledShaderCollection {
 public:
-    std::vector<PreparedCompiledShader> preparedShaders = {};
+    std::vector<CompiledShader> compiledShaders = {};
+    std::vector<CompiledShaderInfo> compiledShaderInfos = {};
     std::vector<HashedString> strings = {};
     std::vector<HashedBuffer> buffers = {};
 
-    std::vector<uint8_t> Serialize(std::vector<CompiledShader> shaders) {
-        flatbuffers::FlatBufferBuilder fbb;
+    void Serialize(flatbuffers::FlatBufferBuilder& fbb, const std::vector<CompiledShaderVariant>& variants) {
+        Pack(variants);
 
-        for (auto& cso : shaders) {
-            PreparedCompiledShader preparedCompiledShader = {};
-            preparedCompiledShader.Type = cso.Type;
-            preparedCompiledShader.Compiled = GetBufferIndex(cso.Compiled);
-            preparedCompiledShader.Preprocessed = GetStringIndex(cso.Preprocessed);
-            preparedCompiledShader.Assembly = GetStringIndex(cso.Assembly);
-            preparedCompiledShader.Asset = GetStringIndex(cso.Asset);
-            preparedCompiledShader.Definitions = GetStringIndex(cso.Definitions);
+        std::vector<flatbuffers::Offset<cso::HashedBuffer>> hashedBufferOffsets = {};
+        for (auto& hashedBuffer : buffers) {
+            const int8_t* contentsPtr = (const int8_t*)hashedBuffer.Contents.data();
+            const uint32_t contentsLen = hashedBuffer.Contents.size();
+            flatbuffers::Offset<flatbuffers::Vector<int8_t>> contentsOffset =
+                fbb.CreateVector(contentsPtr, contentsLen);
+            hashedBufferOffsets.push_back(cso::CreateHashedBuffer(fbb, contentsOffset, hashedBuffer.Hash));
+            apemode::LogInfo("+ Buffer -> {}", contentsLen);
+        }
+
+        flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<cso::HashedBuffer>>> hashedBuffersOffset =
+            fbb.CreateVector(hashedBufferOffsets.data(), hashedBufferOffsets.size());
+
+        std::vector<flatbuffers::Offset<cso::HashedString>> hashedStringOffsets = {};
+        for (auto& hashedString : strings) {
+            const char* contentsPtr = hashedString.Contents.c_str();
+            const uint32_t contentsLen = hashedString.Contents.length();
+            flatbuffers::Offset<flatbuffers::String> contentsOffset = fbb.CreateString(contentsPtr, contentsLen);
+            hashedStringOffsets.push_back(cso::CreateHashedString(fbb, contentsOffset, hashedString.Hash));
+            apemode::LogInfo("+ String -> {}", contentsLen);
+        }
+
+        flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<cso::HashedString>>> hashedStringsOffset =
+            fbb.CreateVector(hashedStringOffsets.data(), hashedStringOffsets.size());
+
+        std::vector<cso::CompiledShader> compiledShaderOffsets = {};
+        for (auto& compiledShader : compiledShaders) {
+            compiledShaderOffsets.push_back(cso::CompiledShader(compiledShader.PreprocessedIndex,
+                                                                compiledShader.AssemblyIndex,
+                                                                compiledShader.CompiledIndex,
+                                                                cso::EIR_SPIRV,
+                                                                compiledShader.Hash));
+            apemode::LogInfo("+ CSO -> {}", compiledShader.CompiledIndex);
+        }
+
+        flatbuffers::Offset<flatbuffers::Vector<const cso::CompiledShader*>> compiledShadersOffset =
+            fbb.CreateVectorOfStructs(compiledShaderOffsets.data(), compiledShaderOffsets.size());
+
+        std::vector<flatbuffers::Offset<cso::CompiledShaderInfo>> compiledShaderInfoOffsets = {};
+        for (auto& compiledShaderInfo : compiledShaderInfos) {
+            flatbuffers::Offset<flatbuffers::Vector<uint32_t>> includedFilesOffset = fbb.CreateVector(
+                compiledShaderInfo.IncludedFileIndices.data(), compiledShaderInfo.IncludedFileIndices.size());
+            flatbuffers::Offset<flatbuffers::Vector<uint32_t>> definitionsOffset = fbb.CreateVector(
+                compiledShaderInfo.DefinitionIndices.data(), compiledShaderInfo.DefinitionIndices.size());
+            compiledShaderInfoOffsets.push_back(cso::CreateCompiledShaderInfo(fbb,
+                                                                              cso::EShader(compiledShaderInfo.Type),
+                                                                              compiledShaderInfo.CompiledShaderIndex,
+                                                                              compiledShaderInfo.AssetIndex,
+                                                                              compiledShaderInfo.DefinitionsIndex,
+                                                                              definitionsOffset,
+                                                                              includedFilesOffset,
+                                                                              compiledShaderInfo.Hash));
+            apemode::LogInfo("+ CSO Info -> {}", compiledShaderInfo.CompiledShaderIndex);
+        }
+
+        flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<cso::CompiledShaderInfo>>>
+            compiledShaderInfosOffset =
+                fbb.CreateVector(compiledShaderInfoOffsets.data(), compiledShaderInfoOffsets.size());
+
+        flatbuffers::Offset<cso::CompiledShaderCollection> collectionOffset =
+            cso::CreateCompiledShaderCollection(fbb,
+                                                cso::EVersion_Value,
+                                                compiledShaderInfosOffset,
+                                                compiledShadersOffset,
+                                                hashedStringsOffset,
+                                                hashedBuffersOffset);
+
+        FinishCompiledShaderCollectionBuffer(fbb, collectionOffset);
+    }
+
+    void Pack(const std::vector<CompiledShaderVariant>& variants) {
+        for (auto& cso : variants) {
+            CompiledShader compiledShader = {};
+            compiledShader.CompiledIndex = GetBufferIndex(cso.Compiled);
+            compiledShader.AssemblyIndex = GetStringIndex(cso.Assembly);
+            compiledShader.PreprocessedIndex = GetStringIndex(cso.Preprocessed);
+            compiledShader.Hash = buffers[compiledShader.CompiledIndex].Hash;
+
+            uint32_t compiledShaderIndex = GetCompiledShaderIndex(compiledShader);
+
+            apemode::CityHash64Wrapper city64;
+            CompiledShaderInfo compiledShaderInfo = {};
+
+            compiledShaderInfo.CompiledShaderIndex = compiledShaderIndex;
+            compiledShaderInfo.AssetIndex = GetStringIndex(cso.Asset);
+            compiledShaderInfo.Type = cso.Type;
+            compiledShaderInfo.DefinitionsIndex = GetStringIndex(cso.Definitions);
+
+            city64.CombineWith(compiledShaderInfo.CompiledShaderIndex);
+            city64.CombineWith(compiledShaderInfo.AssetIndex);
+            city64.CombineWith(compiledShaderInfo.Type);
+            city64.CombineWith(compiledShaderInfo.DefinitionsIndex);
 
             for (auto& includedFile : cso.IncludedFiles) {
-                preparedCompiledShader.IncludedFiles.push_back(GetStringIndex(includedFile));
-            }
-            for (auto& definitionPair : cso.DefinitionMap) {
-                preparedCompiledShader.DefinitionMap.push_back(GetStringIndex(definitionPair.first));
-                preparedCompiledShader.DefinitionMap.push_back(GetStringIndex(definitionPair.second));
+                compiledShaderInfo.IncludedFileIndices.push_back(GetStringIndex(includedFile));
+                city64.CombineWith(compiledShaderInfo.IncludedFileIndices.back());
             }
 
-            preparedShaders.push_back(preparedCompiledShader);
+            for (auto& definitionPair : cso.DefinitionMap) {
+                compiledShaderInfo.DefinitionIndices.push_back(GetStringIndex(definitionPair.first));
+                city64.CombineWith(compiledShaderInfo.DefinitionIndices.back());
+
+                compiledShaderInfo.DefinitionIndices.push_back(GetStringIndex(definitionPair.second));
+                city64.CombineWith(compiledShaderInfo.DefinitionIndices.back());
+            }
+
+            union {
+                uint64_t u64;
+                struct {
+                    uint32_t u32_0;
+                    uint32_t u32_1;
+                };
+            } components;
+
+            components.u64 = city64.Value;
+            compiledShaderInfo.Hash = Mur(components.u32_0, components.u32_1);
+
+            AddCompiledShaderInfoIndex(compiledShaderInfo);
         }
     }
 
     // clang-format off
+    void AddCompiledShaderInfoIndex(const CompiledShaderInfo& compiledShaderInfo) {
+        auto it = std::find_if(compiledShaderInfos.begin(), compiledShaderInfos.end(), [compiledShaderInfo](const CompiledShaderInfo& existingCompiledShaderInfo) { return existingCompiledShaderInfo.Hash == compiledShaderInfo.Hash; });
+        if (it == compiledShaderInfos.end()) { compiledShaderInfos.push_back(compiledShaderInfo); }
+    }
+    uint32_t GetCompiledShaderIndex(const CompiledShader& compiledShader) {
+        auto it = std::find_if(compiledShaders.begin(), compiledShaders.end(), [compiledShader](const CompiledShader& existingCompiledShader) { return existingCompiledShader.Hash == compiledShader.Hash; });
+        if (it != compiledShaders.end()) { return std::distance(compiledShaders.begin(), it); }
+        uint32_t index = compiledShaders.size();
+        compiledShaders.push_back(compiledShader);
+        return index;
+    }
     uint32_t GetStringIndex(const std::string& string) {
-        uint32_t hash = crc32(string);
+        uint32_t hash = CRC32(string);
         auto it = std::find_if(strings.begin(), strings.end(), [hash](const HashedString& hashedString) { return hashedString.Hash == hash; });
         if (it != strings.end()) { return std::distance(strings.begin(), it); }
         uint32_t index = strings.size();
@@ -123,7 +262,7 @@ public:
         return index;
     }
     uint32_t GetBufferIndex(const std::vector<uint8_t>& buffer) {
-        uint32_t hash = crc32(std::string_view{(const char*)buffer.data(), buffer.size()});
+        uint32_t hash = CRC32(std::string_view{(const char*)buffer.data(), buffer.size()});
         auto it = std::find_if(buffers.begin(), buffers.end(), [hash](const HashedBuffer& hashedBuffer) { return hashedBuffer.Hash == hash; });
         if (it != buffers.end()) { return std::distance(buffers.begin(), it); }
         uint32_t index = buffers.size();
@@ -143,7 +282,7 @@ class ShaderCompilerMacroDefinitionCollection : public apemode::shp::IShaderComp
 public:
     std::map<std::string, std::string> Macros;
 
-    void Init(std::map<std::string, std::string>&& macros) { Macros = std::move(macros); }
+    void Init(const std::map<std::string, std::string>& macros) { Macros = macros; }
     size_t GetCount() const override { return Macros.size(); }
 
     apemode::shp::IShaderCompiler::MacroDefinition GetMacroDefinition(const size_t macroIndex) const override {
@@ -222,10 +361,10 @@ public:
             apemode::LogError(" Msg: {}", (const char*)pContent);
             assert(false);
         } else {
-            apemode::LogInfo("ShaderCompiler: {}/{}: {}",
-                             EFeedbackTypeWithOStream(feedbackStage),
-                             EFeedbackTypeWithOStream(feedbackCompilationError),
-                             FullFilePath);
+            // apemode::LogInfo("ShaderCompiler: {}/{}: {}",
+            //                  EFeedbackTypeWithOStream(feedbackStage),
+            //                  EFeedbackTypeWithOStream(feedbackCompilationError),
+            //                  FullFilePath);
         }
     }
 };
@@ -234,8 +373,7 @@ class ShaderCompilerMacroGroupCollection {
 public:
     std::vector<ShaderCompilerMacroDefinitionCollection> MacroGroups;
 
-    void Init(std::vector<ShaderCompilerMacroDefinitionCollection>&& groups) { MacroGroups = std::move(groups); }
-
+    void Init(const std::vector<ShaderCompilerMacroDefinitionCollection>& groups) { MacroGroups = groups; }
     size_t GetCount() const { return MacroGroups.size(); }
 
     const apemode::shp::IShaderCompiler::IMacroDefinitionCollection* GetMacroGroup(const size_t groupIndex) const {
@@ -343,23 +481,22 @@ ShaderCompilerMacroDefinitionCollection GetMacroGroup(const json& groupJson) {
     }
 
     ShaderCompilerMacroDefinitionCollection group;
-    group.Init(std::move(macroDefinitions));
+    group.Init(macroDefinitions);
     return group;
 }
 
-std::optional<CompiledShader> CompileShaderVariant(flatbuffers::FlatBufferBuilder& builder,
-                                                   const apemode::shp::IShaderCompiler& shaderCompiler,
-                                                   std::map<std::string, std::string> macroDefinitions,
-                                                   const std::string& shaderType,
-                                                   std::string srcFile,
-                                                   const std::string& outputFolder) {
-    CompiledShader cso = {};
+std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IShaderCompiler& shaderCompiler,
+                                                          const std::map<std::string, std::string>& macroDefinitions,
+                                                          const std::string& shaderType,
+                                                          const std::string& srcFile,
+                                                          const std::string& outputFolder) {
+    CompiledShaderVariant cso = {};
 
     std::string macrosString = GetMacrosString(macroDefinitions);
     cso.Definitions = macrosString;
 
     ShaderCompilerMacroDefinitionCollection concreteMacros;
-    concreteMacros.Init(std::move(macroDefinitions));
+    concreteMacros.Init(macroDefinitions);
 
     apemode::shp::IShaderCompiler::EShaderType eShaderType = GetShaderType(shaderType);
     cso.Type = cso::EShader(eShaderType);
@@ -383,21 +520,22 @@ std::optional<CompiledShader> CompileShaderVariant(flatbuffers::FlatBufferBuilde
         ReplaceAll(macrosString, ".", "-");
         ReplaceAll(macrosString, ";", "+");
 
-        const size_t fileStartPos = srcFile.find_last_of("/\\");
-        if (fileStartPos != srcFile.npos) { srcFile = srcFile.substr(fileStartPos + 1); }
+        std::string dstFile = srcFile;
+        const size_t fileStartPos = dstFile.find_last_of("/\\");
+        if (fileStartPos != dstFile.npos) { dstFile = dstFile.substr(fileStartPos + 1); }
 
-        std::string cachedCSO =
-            outputFolder + "/" + srcFile + (macrosString.empty() ? "" : "-defs-") + macrosString + ".spv";
+        std::string dstFilePath =
+            outputFolder + "/" + dstFile + (macrosString.empty() ? "" : "-defs-") + macrosString + ".spv";
 
-        ReplaceAll(cachedCSO, "//", "/");
-        ReplaceAll(cachedCSO, "\\/", "\\");
-        ReplaceAll(cachedCSO, "\\\\", "\\");
+        ReplaceAll(dstFilePath, "//", "/");
+        ReplaceAll(dstFilePath, "\\/", "\\");
+        ReplaceAll(dstFilePath, "\\\\", "\\");
 
-        std::string cachedPreprocessed = cachedCSO + "-preprocessed.txt";
-        std::string cachedAssembly = cachedCSO + "-assembly.txt";
+        std::string cachedPreprocessed = dstFilePath + "-preprocessed.txt";
+        std::string cachedAssembly = dstFilePath + "-assembly.txt";
 
         flatbuffers::SaveFile(
-            cachedCSO.c_str(), (const char*)compiledShader->GetBytePtr(), compiledShader->GetByteCount(), true);
+            dstFilePath.c_str(), (const char*)compiledShader->GetBytePtr(), compiledShader->GetByteCount(), true);
 
         flatbuffers::SaveFile(cachedPreprocessed.c_str(),
                               compiledShader->GetPreprocessedSrc().data(),
@@ -409,26 +547,26 @@ std::optional<CompiledShader> CompileShaderVariant(flatbuffers::FlatBufferBuilde
                               compiledShader->GetAssemblySrc().size(),
                               false);
 
+        apemode::LogInfo("Variant: asset=\"{}\", definitions=\"{}\"", cso.Asset, cso.Definitions);
         return cso;
     }
 
     return {};
 }
 
-void CompileShaderVariantsRecursively(std::vector<CompiledShader>& csos,
-                                      flatbuffers::FlatBufferBuilder& builder,
+void CompileShaderVariantsRecursively(std::vector<CompiledShaderVariant>& csos,
                                       const apemode::shp::IShaderCompiler& shaderCompiler,
                                       const ShaderCompilerMacroGroupCollection& macroGroups,
                                       const size_t macroGroupIndex,
                                       const std::string& shaderType,
-                                      std::string srcFile,
+                                      const std::string& srcFile,
                                       const std::string& outputFolder,
                                       std::vector<size_t>& macroIndices) {
     assert(macroIndices.size() == macroGroups.MacroGroups.size());
     if (macroGroupIndex >= macroGroups.MacroGroups.size()) {
         std::map<std::string, std::string> macroDefinitions;
 
-        apemode::LogInfo("Collecting definitions ...");
+        // apemode::LogInfo("Collecting definitions ...");
         for (size_t i = 0; i < macroGroups.GetCount(); ++i) {
             auto g = macroGroups.GetMacroGroup(i);
             auto j = macroIndices[i];
@@ -436,17 +574,16 @@ void CompileShaderVariantsRecursively(std::vector<CompiledShader>& csos,
             auto v = g->GetMacroDefinition(j).pszValue;
 
             if (strcmp(k, "") != 0) {
-                apemode::LogInfo("Adding: group {}, macro {}, {}={}", i, j, k, v);
+                // apemode::LogInfo("Adding: group {}, macro {}, {}={}", i, j, k, v);
                 macroDefinitions[k] = v;
             } else {
-                apemode::LogInfo("Skipping: group={}", i);
+                // apemode::LogInfo("Skipping: group={}", i);
             }
         }
 
-        apemode::LogInfo("Sending to compiler ...");
+        // apemode::LogInfo("Sending to compiler ...");
 
-        if (auto cso = CompileShaderVariant(
-                builder, shaderCompiler, std::move(macroDefinitions), shaderType, srcFile, outputFolder)) {
+        if (auto cso = CompileShaderVariant(shaderCompiler, macroDefinitions, shaderType, srcFile, outputFolder)) {
             csos.push_back(cso.value());
         }
         return;
@@ -455,43 +592,34 @@ void CompileShaderVariantsRecursively(std::vector<CompiledShader>& csos,
     auto& group = macroGroups.MacroGroups[macroGroupIndex];
     for (size_t i = 0; i < group.GetCount(); ++i) {
         macroIndices[macroGroupIndex] = i;
-        CompileShaderVariantsRecursively(csos,
-                                         builder,
-                                         shaderCompiler,
-                                         macroGroups,
-                                         macroGroupIndex + 1,
-                                         shaderType,
-                                         srcFile,
-                                         outputFolder,
-                                         macroIndices);
+        CompileShaderVariantsRecursively(
+            csos, shaderCompiler, macroGroups, macroGroupIndex + 1, shaderType, srcFile, outputFolder, macroIndices);
     }
 }
 
-void CompileShaderVariantsRecursively(std::vector<CompiledShader>& csos,
-                                      flatbuffers::FlatBufferBuilder& builder,
+void CompileShaderVariantsRecursively(std::vector<CompiledShaderVariant>& csos,
                                       const apemode::shp::IShaderCompiler& shaderCompiler,
                                       const ShaderCompilerMacroGroupCollection& macroGroups,
                                       const std::string& shaderType,
-                                      std::string srcFile,
+                                      const std::string& srcFile,
                                       const std::string& outputFolder) {
     std::vector<size_t> macroIndices(macroGroups.GetCount());
     CompileShaderVariantsRecursively(
-        csos, builder, shaderCompiler, macroGroups, 0, shaderType, srcFile, outputFolder, macroIndices);
+        csos, shaderCompiler, macroGroups, 0, shaderType, srcFile, outputFolder, macroIndices);
 }
 
-std::vector<CompiledShader> CompileShader(flatbuffers::FlatBufferBuilder& builder,
-                                          const apemode::platform::shared::AssetManager& assetManager,
-                                          apemode::shp::IShaderCompiler& shaderCompiler,
-                                          const json& commandJson,
-                                          const std::string& outputFolder) {
-    std::vector<CompiledShader> csos;
+std::vector<CompiledShaderVariant> CompileShader(const apemode::platform::shared::AssetManager& assetManager,
+                                                 apemode::shp::IShaderCompiler& shaderCompiler,
+                                                 const json& commandJson,
+                                                 const std::string& outputFolder) {
+    std::vector<CompiledShaderVariant> csos;
 
     assert(commandJson["srcFile"].is_string());
     std::string srcFile = commandJson["srcFile"].get<std::string>();
-    apemode::LogInfo("srcFile: {}", srcFile.c_str());
+    // apemode::LogInfo("srcFile: {}", srcFile.c_str());
 
     if (auto acquiredSrcFile = assetManager.Acquire(srcFile.c_str())) {
-        apemode::LogInfo("assetId: {}", acquiredSrcFile->GetId());
+        // apemode::LogInfo("assetId: {}", acquiredSrcFile->GetId());
 
         auto definitionGroupsJsonIt = commandJson.find("definitionGroups");
         if (definitionGroupsJsonIt != commandJson.end() && definitionGroupsJsonIt->is_array()) {
@@ -505,8 +633,7 @@ std::vector<CompiledShader> CompileShader(flatbuffers::FlatBufferBuilder& builde
             assert(commandJson["shaderType"].is_string());
             const std::string shaderType = commandJson["shaderType"].get<std::string>();
 
-            CompileShaderVariantsRecursively(
-                csos, builder, shaderCompiler, macroGroups, shaderType, srcFile, outputFolder);
+            CompileShaderVariantsRecursively(csos, shaderCompiler, macroGroups, shaderType, srcFile, outputFolder);
         } else {
             std::map<std::string, std::string> macroDefinitions;
             ShaderCompilerMacroDefinitionCollection macros;
@@ -516,14 +643,13 @@ std::vector<CompiledShader> CompileShader(flatbuffers::FlatBufferBuilder& builde
                 const json& macrosJson = *macrosJsonIt;
                 macroDefinitions = GetMacroDefinitions(macrosJson);
 
-                if (!macroDefinitions.empty()) { macros.Init(std::move(macroDefinitions)); }
+                if (!macroDefinitions.empty()) { macros.Init(macroDefinitions); }
             }
 
             assert(commandJson["shaderType"].is_string());
             const std::string shaderType = commandJson["shaderType"].get<std::string>();
 
-            if (auto cso = CompileShaderVariant(
-                    builder, shaderCompiler, macroDefinitions, shaderType, srcFile, outputFolder)) {
+            if (auto cso = CompileShaderVariant(shaderCompiler, macroDefinitions, shaderType, srcFile, outputFolder)) {
                 csos.push_back(cso.value());
             }
         }
@@ -615,20 +741,31 @@ int main(int argc, char** argv) {
     shaderCompiler->SetShaderFileReader(&shaderCompilerFileReader);
     shaderCompiler->SetShaderFeedbackWriter(&shaderFeedbackWriter);
 
-    flatbuffers::FlatBufferBuilder builder;
-    std::vector<CompiledShader> compiledShaders;
+    std::vector<CompiledShaderVariant> compiledShaders;
 
     // clang-format off
     const json& commandsJson = csoJson["commands"];
     for (const auto& commandJson : commandsJson) {
-        std::vector<CompiledShader> variants = CompileShader(builder, assetManager, *shaderCompiler, commandJson, outputFolder);
+        std::vector<CompiledShaderVariant> variants = CompileShader(assetManager, *shaderCompiler, commandJson, outputFolder);
         compiledShaders.insert(compiledShaders.end(), variants.begin(), variants.end());
     }
     // clang-format on
-    
-    
+
     CompiledShaderCollection collection;
-    collection.Serialize(compiledShaders);
+    flatbuffers::FlatBufferBuilder fbb;
+    collection.Serialize(fbb, compiledShaders);
+
+    flatbuffers::Verifier v(fbb.GetBufferPointer(), fbb.GetSize());
+    assert(cso::VerifyCompiledShaderCollectionBuffer(v));
+
+    auto builtBuffePtr = (const char*)fbb.GetBufferPointer();
+    auto builtBuffeLen = (size_t)fbb.GetSize();
+
+    apemode::LogInfo("CSO file: {}", outputFile);
+    if (!flatbuffers::SaveFile(outputFile.c_str(), builtBuffePtr, builtBuffeLen, true)) {
+        apemode::LogError("Failed to write CSO ({} bytes) to file: '{}'", builtBuffeLen, outputFile);
+        return 1;
+    }
 
     apemode::LogInfo("Done.");
     return 0;

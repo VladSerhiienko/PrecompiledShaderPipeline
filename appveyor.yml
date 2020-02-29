@@ -27,7 +27,7 @@ build_script:
   # - ps: cd dependencies/shaderc
   # - ps: python.exe utils/git-sync-deps
   # - ps: cd ../..
-  # - ps: msbuild build_msvc/Viewer.sln /t:ShaderPipeline /p:Configuration="Release"
+  # - ps: msbuild build_msvc/Viewer.sln /t:PrecompiledShaderPipeline /p:Configuration="Release"
 notifications:
 - provider: Email
   to:

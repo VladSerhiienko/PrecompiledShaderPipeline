@@ -88,18 +88,16 @@ std::shared_ptr<spdlog::logger> CreateLogger(spdlog::level::level_enum lvl, std:
     auto logger = spdlog::create<>("viewer", sinks.begin(), sinks.end());
     logger->set_level(lvl);
 
-    spdlog::set_pattern("%v");
-
-    logger->info("");
-    logger->info("\t   _____ __    ____");
-    logger->info("\t  / ___// /_  / __ \\");
-    logger->info("\t  \\__ \\/ __ \\/ /_/ /");
-    logger->info("\t ___/ / / / / ____/");
-    logger->info("\t/____/_/ /_/_/");
-    logger->info("");
-
-    spdlog::set_pattern("%c");
-    logger->info("");
+    // spdlog::set_pattern("%v");
+    // logger->info("");
+    // logger->info("\t   _____ __    ____");
+    // logger->info("\t  / ___// /_  / __ \\");
+    // logger->info("\t  \\__ \\/ __ \\/ /_/ /");
+    // logger->info("\t ___/ / / / / ____/");
+    // logger->info("\t/____/_/ /_/_/");
+    // logger->info("");
+    // spdlog::set_pattern("%c");
+    // logger->info("");
 
     spdlog::set_pattern("[%T.%f] [%t] [%L] %v");
     return logger;
@@ -117,17 +115,15 @@ apemode::ImplementedAppState::ImplementedAppState(int argc, const char** argv)
 apemode::ImplementedAppState::~ImplementedAppState() {
     apemode_memory_allocation_scope;
 
-    LogInfo("ImplementedAppState: Destroying.");
-
-    spdlog::set_pattern("%v");
-    Logger->info("");
-    Logger->info("\t    _____          ");
-    Logger->info("\t   / __ /__  _____ ");
-    Logger->info("\t  / __  / / / / _ \\");
-    Logger->info("\t / /_/ / /_/ /  __/");
-    Logger->info("\t/_____/\\__, /\\___/ ");
-    Logger->info("\t      /____/       ");
-
-    spdlog::set_pattern("%c");
-    Logger->info("");
+    // LogInfo("ImplementedAppState: Destroying.");
+    // spdlog::set_pattern("%v");
+    // Logger->info("");
+    // Logger->info("\t    _____          ");
+    // Logger->info("\t   / __ /__  _____ ");
+    // Logger->info("\t  / __  / / / / _ \\");
+    // Logger->info("\t / /_/ / /_/ /  __/");
+    // Logger->info("\t/_____/\\__, /\\___/ ");
+    // Logger->info("\t      /____/       ");
+    // spdlog::set_pattern("%c");
+    // Logger->info("");
 }

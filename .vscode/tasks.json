@@ -75,10 +75,11 @@
             }
         },
         {
-            "label": "ShaderPipeline/CSO(Darwin/Xcode)",
+            "label": "PrecompiledShaderPipeline/CSO(Darwin/Xcode)",
             "type": "shell",
-            "command": "./ShaderPipeline",
+            "command": "./PrecompiledShaderPipeline",
             "args": [
+                "--mode", "build-collection",
                 "--assets-folder", "\"../../assets/**\"",
                 "--cso-json-file", "../../assets/shaders/Viewer.cso.json",
                 "--cso-file", "../../assets/shaders/Viewer.cso"
@@ -92,9 +93,9 @@
             }
         },
         {
-            "label": "ShaderPipeline/CSO(VS2017)",
+            "label": "PrecompiledShaderPipeline/CSO(VS2017)",
             "type": "shell",
-            "command": "./ShaderPipeline.exe",
+            "command": "./PrecompiledShaderPipeline.exe",
             "args": [
                 "--assets-folder", "\"../../assets/**\"",
                 "--cso-json-file", "../../assets/shaders/Viewer.cso.json",

@@ -113,13 +113,13 @@ template <typename TFileCallback>
 void ProcessFiles(TFileCallback callback, const tinydir_dir& dir, bool r) {
     apemode_memory_allocation_scope;
 
-    apemode::LogInfo("AssetManager: Entering folder: {}", dir.path);
+    // apemode::LogInfo("AssetManager: Entering folder: {}", dir.path);
 
     for (size_t i = 0; i < dir.n_files; i++) {
         tinydir_file file;
         if (tinydir_readfile_n(&dir, &file, i) != -1) {
             if (file.is_reg) {
-                apemode::LogInfo("AssetManager: Processing file: {}", file.path);
+                // apemode::LogInfo("AssetManager: Processing file: {}", file.path);
                 callback(file.path, file);
             } else if (r && file.is_dir && (strcmp(file.name, ".") != 0) && (strcmp(file.name, "..") != 0)) {
                 tinydir_dir subdir;
@@ -171,7 +171,7 @@ void apemode::platform::shared::AssetManager::UpdateAssets(const char* pszFolder
 
         if ((AssetFile::kVersionDeleted == assetIt->second.Asset.GetCurrentVersion()) && !bAssetExists) {
             if ((!std::atomic_load(&assetIt->second.UseCount))) {
-                apemode::LogInfo("AssetManager: Deleted file: {}", assetIt->second.Asset.GetId());
+                // apemode::LogInfo("AssetManager: Deleted file: {}", assetIt->second.Asset.GetId());
                 assetIt = AssetFiles.erase(assetIt);
                 continue;
             }
@@ -183,7 +183,7 @@ void apemode::platform::shared::AssetManager::UpdateAssets(const char* pszFolder
         /* File was deleted, schedule the asset for destruction. */
 
         if ((AssetFile::kVersionDeleted != assetIt->second.Asset.GetCurrentVersion()) && !bAssetExists) {
-            apemode::LogInfo("AssetManager: Marked file as deleted: {}", assetIt->second.Asset.GetId());
+            // apemode::LogInfo("AssetManager: Marked file as deleted: {}", assetIt->second.Asset.GetId());
             assetIt->second.Asset.SetCurrentVersion(AssetFile::kVersionDeleted);
             ++assetIt;
             continue;
@@ -238,7 +238,7 @@ void apemode::platform::shared::AssetManager::UpdateAssets(const char* pszFolder
                     pAsset->SetName(relativePath.c_str());
                     pAsset->SetId(fullPath.c_str());
 
-                    apemode::LogInfo("AssetManager: Added file: {}", fullPath);
+                    // apemode::LogInfo("AssetManager: Added file: {}", fullPath);
                 } else {
                     pAsset = &assetIt->second.Asset;
                 }
@@ -248,7 +248,7 @@ void apemode::platform::shared::AssetManager::UpdateAssets(const char* pszFolder
                 if (pAsset && (pAsset->GetCurrentVersion() != lastWriteTime)) {
                     /* Update the asset version. */
 
-                    apemode::LogInfo("AssetManager: Updated file version: {}", fullPath);
+                    // apemode::LogInfo("AssetManager: Updated file version: {}", fullPath);
                     pAsset->SetCurrentVersion(lastWriteTime);
                 }
             }

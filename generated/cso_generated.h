@@ -117,33 +117,31 @@ inline const char *EnumNameEShader(EShader e) {
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
  private:
   uint32_t preprocessed_string_index_;
-  uint32_t preprocessed_opt_string_index_;
   uint32_t assembly_string_index_;
   uint32_t compiled_buffer_index_;
-  uint32_t crc2_;
+  uint8_t type_;
+  int8_t padding0__;  int16_t padding1__;
+  uint32_t hash_;
 
  public:
   CompiledShader() {
     memset(static_cast<void *>(this), 0, sizeof(CompiledShader));
   }
-  CompiledShader(uint32_t _preprocessed_string_index, uint32_t _preprocessed_opt_string_index, uint32_t _assembly_string_index, uint32_t _compiled_buffer_index, uint32_t _crc2)
+  CompiledShader(uint32_t _preprocessed_string_index, uint32_t _assembly_string_index, uint32_t _compiled_buffer_index, EIR _type, uint32_t _hash)
       : preprocessed_string_index_(flatbuffers::EndianScalar(_preprocessed_string_index)),
-        preprocessed_opt_string_index_(flatbuffers::EndianScalar(_preprocessed_opt_string_index)),
         assembly_string_index_(flatbuffers::EndianScalar(_assembly_string_index)),
         compiled_buffer_index_(flatbuffers::EndianScalar(_compiled_buffer_index)),
-        crc2_(flatbuffers::EndianScalar(_crc2)) {
+        type_(flatbuffers::EndianScalar(static_cast<uint8_t>(_type))),
+        padding0__(0),
+        padding1__(0),
+        hash_(flatbuffers::EndianScalar(_hash)) {
+    (void)padding0__;    (void)padding1__;
   }
   uint32_t preprocessed_string_index() const {
     return flatbuffers::EndianScalar(preprocessed_string_index_);
   }
   void mutate_preprocessed_string_index(uint32_t _preprocessed_string_index) {
     flatbuffers::WriteScalar(&preprocessed_string_index_, _preprocessed_string_index);
-  }
-  uint32_t preprocessed_opt_string_index() const {
-    return flatbuffers::EndianScalar(preprocessed_opt_string_index_);
-  }
-  void mutate_preprocessed_opt_string_index(uint32_t _preprocessed_opt_string_index) {
-    flatbuffers::WriteScalar(&preprocessed_opt_string_index_, _preprocessed_opt_string_index);
   }
   uint32_t assembly_string_index() const {
     return flatbuffers::EndianScalar(assembly_string_index_);
@@ -157,11 +155,17 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
   void mutate_compiled_buffer_index(uint32_t _compiled_buffer_index) {
     flatbuffers::WriteScalar(&compiled_buffer_index_, _compiled_buffer_index);
   }
-  uint32_t crc2() const {
-    return flatbuffers::EndianScalar(crc2_);
+  EIR type() const {
+    return static_cast<EIR>(flatbuffers::EndianScalar(type_));
   }
-  void mutate_crc2(uint32_t _crc2) {
-    flatbuffers::WriteScalar(&crc2_, _crc2);
+  void mutate_type(EIR _type) {
+    flatbuffers::WriteScalar(&type_, static_cast<uint8_t>(_type));
+  }
+  uint32_t hash() const {
+    return flatbuffers::EndianScalar(hash_);
+  }
+  void mutate_hash(uint32_t _hash) {
+    flatbuffers::WriteScalar(&hash_, _hash);
   }
 };
 FLATBUFFERS_STRUCT_END(CompiledShader, 20);
@@ -169,7 +173,7 @@ FLATBUFFERS_STRUCT_END(CompiledShader, 20);
 struct HashedString FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CONTENTS = 4,
-    VT_CRC2 = 6
+    VT_HASH = 6
   };
   const flatbuffers::String *contents() const {
     return GetPointer<const flatbuffers::String *>(VT_CONTENTS);
@@ -177,17 +181,17 @@ struct HashedString FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::String *mutable_contents() {
     return GetPointer<flatbuffers::String *>(VT_CONTENTS);
   }
-  uint32_t crc2() const {
-    return GetField<uint32_t>(VT_CRC2, 0);
+  uint32_t hash() const {
+    return GetField<uint32_t>(VT_HASH, 0);
   }
-  bool mutate_crc2(uint32_t _crc2) {
-    return SetField<uint32_t>(VT_CRC2, _crc2, 0);
+  bool mutate_hash(uint32_t _hash) {
+    return SetField<uint32_t>(VT_HASH, _hash, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_CONTENTS) &&
            verifier.VerifyString(contents()) &&
-           VerifyField<uint32_t>(verifier, VT_CRC2) &&
+           VerifyField<uint32_t>(verifier, VT_HASH) &&
            verifier.EndTable();
   }
 };
@@ -198,8 +202,8 @@ struct HashedStringBuilder {
   void add_contents(flatbuffers::Offset<flatbuffers::String> contents) {
     fbb_.AddOffset(HashedString::VT_CONTENTS, contents);
   }
-  void add_crc2(uint32_t crc2) {
-    fbb_.AddElement<uint32_t>(HashedString::VT_CRC2, crc2, 0);
+  void add_hash(uint32_t hash) {
+    fbb_.AddElement<uint32_t>(HashedString::VT_HASH, hash, 0);
   }
   explicit HashedStringBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -216,9 +220,9 @@ struct HashedStringBuilder {
 inline flatbuffers::Offset<HashedString> CreateHashedString(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::String> contents = 0,
-    uint32_t crc2 = 0) {
+    uint32_t hash = 0) {
   HashedStringBuilder builder_(_fbb);
-  builder_.add_crc2(crc2);
+  builder_.add_hash(hash);
   builder_.add_contents(contents);
   return builder_.Finish();
 }
@@ -226,18 +230,18 @@ inline flatbuffers::Offset<HashedString> CreateHashedString(
 inline flatbuffers::Offset<HashedString> CreateHashedStringDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const char *contents = nullptr,
-    uint32_t crc2 = 0) {
+    uint32_t hash = 0) {
   auto contents__ = contents ? _fbb.CreateString(contents) : 0;
   return cso::CreateHashedString(
       _fbb,
       contents__,
-      crc2);
+      hash);
 }
 
 struct HashedBuffer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CONTENTS = 4,
-    VT_CRC2 = 6
+    VT_HASH = 6
   };
   const flatbuffers::Vector<int8_t> *contents() const {
     return GetPointer<const flatbuffers::Vector<int8_t> *>(VT_CONTENTS);
@@ -245,17 +249,17 @@ struct HashedBuffer FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<int8_t> *mutable_contents() {
     return GetPointer<flatbuffers::Vector<int8_t> *>(VT_CONTENTS);
   }
-  uint32_t crc2() const {
-    return GetField<uint32_t>(VT_CRC2, 0);
+  uint32_t hash() const {
+    return GetField<uint32_t>(VT_HASH, 0);
   }
-  bool mutate_crc2(uint32_t _crc2) {
-    return SetField<uint32_t>(VT_CRC2, _crc2, 0);
+  bool mutate_hash(uint32_t _hash) {
+    return SetField<uint32_t>(VT_HASH, _hash, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_CONTENTS) &&
            verifier.VerifyVector(contents()) &&
-           VerifyField<uint32_t>(verifier, VT_CRC2) &&
+           VerifyField<uint32_t>(verifier, VT_HASH) &&
            verifier.EndTable();
   }
 };
@@ -266,8 +270,8 @@ struct HashedBufferBuilder {
   void add_contents(flatbuffers::Offset<flatbuffers::Vector<int8_t>> contents) {
     fbb_.AddOffset(HashedBuffer::VT_CONTENTS, contents);
   }
-  void add_crc2(uint32_t crc2) {
-    fbb_.AddElement<uint32_t>(HashedBuffer::VT_CRC2, crc2, 0);
+  void add_hash(uint32_t hash) {
+    fbb_.AddElement<uint32_t>(HashedBuffer::VT_HASH, hash, 0);
   }
   explicit HashedBufferBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -284,9 +288,9 @@ struct HashedBufferBuilder {
 inline flatbuffers::Offset<HashedBuffer> CreateHashedBuffer(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<int8_t>> contents = 0,
-    uint32_t crc2 = 0) {
+    uint32_t hash = 0) {
   HashedBufferBuilder builder_(_fbb);
-  builder_.add_crc2(crc2);
+  builder_.add_hash(hash);
   builder_.add_contents(contents);
   return builder_.Finish();
 }
@@ -294,32 +298,35 @@ inline flatbuffers::Offset<HashedBuffer> CreateHashedBuffer(
 inline flatbuffers::Offset<HashedBuffer> CreateHashedBufferDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<int8_t> *contents = nullptr,
-    uint32_t crc2 = 0) {
+    uint32_t hash = 0) {
   auto contents__ = contents ? _fbb.CreateVector<int8_t>(*contents) : 0;
   return cso::CreateHashedBuffer(
       _fbb,
       contents__,
-      crc2);
+      hash);
 }
 
 struct CompiledShaderInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_INDEX = 4,
-    VT_SHADER = 6,
+    VT_TYPE = 4,
+    VT_COMPILED_SHADER_INDEX = 6,
     VT_ASSET_STRING_INDEX = 8,
-    VT_MACROS_STRING_INDEX = 10
+    VT_DEFINITIONS_STRING_INDEX = 10,
+    VT_DEFINITIONS_STRING_INDICES = 12,
+    VT_INCLUDED_FILES_STRING_INDICES = 14,
+    VT_HASH = 16
   };
-  uint32_t index() const {
-    return GetField<uint32_t>(VT_INDEX, 0);
+  EShader type() const {
+    return static_cast<EShader>(GetField<uint32_t>(VT_TYPE, 0));
   }
-  bool mutate_index(uint32_t _index) {
-    return SetField<uint32_t>(VT_INDEX, _index, 0);
+  bool mutate_type(EShader _type) {
+    return SetField<uint32_t>(VT_TYPE, static_cast<uint32_t>(_type), 0);
   }
-  EShader shader() const {
-    return static_cast<EShader>(GetField<uint32_t>(VT_SHADER, 0));
+  uint32_t compiled_shader_index() const {
+    return GetField<uint32_t>(VT_COMPILED_SHADER_INDEX, 0);
   }
-  bool mutate_shader(EShader _shader) {
-    return SetField<uint32_t>(VT_SHADER, static_cast<uint32_t>(_shader), 0);
+  bool mutate_compiled_shader_index(uint32_t _compiled_shader_index) {
+    return SetField<uint32_t>(VT_COMPILED_SHADER_INDEX, _compiled_shader_index, 0);
   }
   uint32_t asset_string_index() const {
     return GetField<uint32_t>(VT_ASSET_STRING_INDEX, 0);
@@ -327,18 +334,41 @@ struct CompiledShaderInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool mutate_asset_string_index(uint32_t _asset_string_index) {
     return SetField<uint32_t>(VT_ASSET_STRING_INDEX, _asset_string_index, 0);
   }
-  uint32_t macros_string_index() const {
-    return GetField<uint32_t>(VT_MACROS_STRING_INDEX, 0);
+  uint32_t definitions_string_index() const {
+    return GetField<uint32_t>(VT_DEFINITIONS_STRING_INDEX, 0);
   }
-  bool mutate_macros_string_index(uint32_t _macros_string_index) {
-    return SetField<uint32_t>(VT_MACROS_STRING_INDEX, _macros_string_index, 0);
+  bool mutate_definitions_string_index(uint32_t _definitions_string_index) {
+    return SetField<uint32_t>(VT_DEFINITIONS_STRING_INDEX, _definitions_string_index, 0);
+  }
+  const flatbuffers::Vector<uint32_t> *definitions_string_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_DEFINITIONS_STRING_INDICES);
+  }
+  flatbuffers::Vector<uint32_t> *mutable_definitions_string_indices() {
+    return GetPointer<flatbuffers::Vector<uint32_t> *>(VT_DEFINITIONS_STRING_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *included_files_string_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_INCLUDED_FILES_STRING_INDICES);
+  }
+  flatbuffers::Vector<uint32_t> *mutable_included_files_string_indices() {
+    return GetPointer<flatbuffers::Vector<uint32_t> *>(VT_INCLUDED_FILES_STRING_INDICES);
+  }
+  uint32_t hash() const {
+    return GetField<uint32_t>(VT_HASH, 0);
+  }
+  bool mutate_hash(uint32_t _hash) {
+    return SetField<uint32_t>(VT_HASH, _hash, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_INDEX) &&
-           VerifyField<uint32_t>(verifier, VT_SHADER) &&
+           VerifyField<uint32_t>(verifier, VT_TYPE) &&
+           VerifyField<uint32_t>(verifier, VT_COMPILED_SHADER_INDEX) &&
            VerifyField<uint32_t>(verifier, VT_ASSET_STRING_INDEX) &&
-           VerifyField<uint32_t>(verifier, VT_MACROS_STRING_INDEX) &&
+           VerifyField<uint32_t>(verifier, VT_DEFINITIONS_STRING_INDEX) &&
+           VerifyOffset(verifier, VT_DEFINITIONS_STRING_INDICES) &&
+           verifier.VerifyVector(definitions_string_indices()) &&
+           VerifyOffset(verifier, VT_INCLUDED_FILES_STRING_INDICES) &&
+           verifier.VerifyVector(included_files_string_indices()) &&
+           VerifyField<uint32_t>(verifier, VT_HASH) &&
            verifier.EndTable();
   }
 };
@@ -346,17 +376,26 @@ struct CompiledShaderInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 struct CompiledShaderInfoBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_index(uint32_t index) {
-    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_INDEX, index, 0);
+  void add_type(EShader type) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_TYPE, static_cast<uint32_t>(type), 0);
   }
-  void add_shader(EShader shader) {
-    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_SHADER, static_cast<uint32_t>(shader), 0);
+  void add_compiled_shader_index(uint32_t compiled_shader_index) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_COMPILED_SHADER_INDEX, compiled_shader_index, 0);
   }
   void add_asset_string_index(uint32_t asset_string_index) {
     fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_ASSET_STRING_INDEX, asset_string_index, 0);
   }
-  void add_macros_string_index(uint32_t macros_string_index) {
-    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_MACROS_STRING_INDEX, macros_string_index, 0);
+  void add_definitions_string_index(uint32_t definitions_string_index) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_DEFINITIONS_STRING_INDEX, definitions_string_index, 0);
+  }
+  void add_definitions_string_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> definitions_string_indices) {
+    fbb_.AddOffset(CompiledShaderInfo::VT_DEFINITIONS_STRING_INDICES, definitions_string_indices);
+  }
+  void add_included_files_string_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> included_files_string_indices) {
+    fbb_.AddOffset(CompiledShaderInfo::VT_INCLUDED_FILES_STRING_INDICES, included_files_string_indices);
+  }
+  void add_hash(uint32_t hash) {
+    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_HASH, hash, 0);
   }
   explicit CompiledShaderInfoBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -372,16 +411,44 @@ struct CompiledShaderInfoBuilder {
 
 inline flatbuffers::Offset<CompiledShaderInfo> CreateCompiledShaderInfo(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t index = 0,
-    EShader shader = EShader_Vert,
+    EShader type = EShader_Vert,
+    uint32_t compiled_shader_index = 0,
     uint32_t asset_string_index = 0,
-    uint32_t macros_string_index = 0) {
+    uint32_t definitions_string_index = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> definitions_string_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> included_files_string_indices = 0,
+    uint32_t hash = 0) {
   CompiledShaderInfoBuilder builder_(_fbb);
-  builder_.add_macros_string_index(macros_string_index);
+  builder_.add_hash(hash);
+  builder_.add_included_files_string_indices(included_files_string_indices);
+  builder_.add_definitions_string_indices(definitions_string_indices);
+  builder_.add_definitions_string_index(definitions_string_index);
   builder_.add_asset_string_index(asset_string_index);
-  builder_.add_shader(shader);
-  builder_.add_index(index);
+  builder_.add_compiled_shader_index(compiled_shader_index);
+  builder_.add_type(type);
   return builder_.Finish();
+}
+
+inline flatbuffers::Offset<CompiledShaderInfo> CreateCompiledShaderInfoDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    EShader type = EShader_Vert,
+    uint32_t compiled_shader_index = 0,
+    uint32_t asset_string_index = 0,
+    uint32_t definitions_string_index = 0,
+    const std::vector<uint32_t> *definitions_string_indices = nullptr,
+    const std::vector<uint32_t> *included_files_string_indices = nullptr,
+    uint32_t hash = 0) {
+  auto definitions_string_indices__ = definitions_string_indices ? _fbb.CreateVector<uint32_t>(*definitions_string_indices) : 0;
+  auto included_files_string_indices__ = included_files_string_indices ? _fbb.CreateVector<uint32_t>(*included_files_string_indices) : 0;
+  return cso::CreateCompiledShaderInfo(
+      _fbb,
+      type,
+      compiled_shader_index,
+      asset_string_index,
+      definitions_string_index,
+      definitions_string_indices__,
+      included_files_string_indices__,
+      hash);
 }
 
 struct CompiledShaderCollection FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -416,11 +483,11 @@ struct CompiledShaderCollection FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   flatbuffers::Vector<flatbuffers::Offset<HashedString>> *mutable_hashed_strings() {
     return GetPointer<flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_STRINGS);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *hashed_buffers() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_BUFFERS);
+  const flatbuffers::Vector<flatbuffers::Offset<HashedBuffer>> *hashed_buffers() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<HashedBuffer>> *>(VT_HASHED_BUFFERS);
   }
-  flatbuffers::Vector<flatbuffers::Offset<HashedString>> *mutable_hashed_buffers() {
-    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_BUFFERS);
+  flatbuffers::Vector<flatbuffers::Offset<HashedBuffer>> *mutable_hashed_buffers() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<HashedBuffer>> *>(VT_HASHED_BUFFERS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -455,7 +522,7 @@ struct CompiledShaderCollectionBuilder {
   void add_hashed_strings(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_strings) {
     fbb_.AddOffset(CompiledShaderCollection::VT_HASHED_STRINGS, hashed_strings);
   }
-  void add_hashed_buffers(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_buffers) {
+  void add_hashed_buffers(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedBuffer>>> hashed_buffers) {
     fbb_.AddOffset(CompiledShaderCollection::VT_HASHED_BUFFERS, hashed_buffers);
   }
   explicit CompiledShaderCollectionBuilder(flatbuffers::FlatBufferBuilder &_fbb)
@@ -476,7 +543,7 @@ inline flatbuffers::Offset<CompiledShaderCollection> CreateCompiledShaderCollect
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>>> compiled_shader_infos = 0,
     flatbuffers::Offset<flatbuffers::Vector<const CompiledShader *>> compiled_shaders = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_strings = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_buffers = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedBuffer>>> hashed_buffers = 0) {
   CompiledShaderCollectionBuilder builder_(_fbb);
   builder_.add_hashed_buffers(hashed_buffers);
   builder_.add_hashed_strings(hashed_strings);
@@ -492,11 +559,11 @@ inline flatbuffers::Offset<CompiledShaderCollection> CreateCompiledShaderCollect
     const std::vector<flatbuffers::Offset<CompiledShaderInfo>> *compiled_shader_infos = nullptr,
     const std::vector<CompiledShader> *compiled_shaders = nullptr,
     const std::vector<flatbuffers::Offset<HashedString>> *hashed_strings = nullptr,
-    const std::vector<flatbuffers::Offset<HashedString>> *hashed_buffers = nullptr) {
+    const std::vector<flatbuffers::Offset<HashedBuffer>> *hashed_buffers = nullptr) {
   auto compiled_shader_infos__ = compiled_shader_infos ? _fbb.CreateVector<flatbuffers::Offset<CompiledShaderInfo>>(*compiled_shader_infos) : 0;
   auto compiled_shaders__ = compiled_shaders ? _fbb.CreateVectorOfStructs<CompiledShader>(*compiled_shaders) : 0;
   auto hashed_strings__ = hashed_strings ? _fbb.CreateVector<flatbuffers::Offset<HashedString>>(*hashed_strings) : 0;
-  auto hashed_buffers__ = hashed_buffers ? _fbb.CreateVector<flatbuffers::Offset<HashedString>>(*hashed_buffers) : 0;
+  auto hashed_buffers__ = hashed_buffers ? _fbb.CreateVector<flatbuffers::Offset<HashedBuffer>>(*hashed_buffers) : 0;
   return cso::CreateCompiledShaderCollection(
       _fbb,
       version,
