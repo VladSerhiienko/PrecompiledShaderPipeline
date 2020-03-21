@@ -164,6 +164,7 @@ void main( ) {
     vec3  a3    = smoothstep( vec3( 0.0 ), d, Barycoords );
     float edge  = min( min( a3.x, a3.y ), a3.z );
 
+#if 0
     vec3 nnn = CalculateWorldNormal( );
     vec3 nn = nnn * 0.5 + vec3( 0.5 );
     // vec3 cc = mix( vec3( 0.0 ), vec3( 0.8 ), edge );
@@ -173,6 +174,7 @@ void main( ) {
     OutColor.rgb = cc;
     OutColor.a   = 1;
     return;
+#endif
 
     vec3 L          = normalize( LightDirection.xyz );
     vec3 lightColor = LightColor.xyz;

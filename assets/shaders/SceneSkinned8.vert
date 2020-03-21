@@ -42,14 +42,15 @@ layout( std140, set = 1, binding = 0 ) uniform ObjectUBO {
 // layout( std140, set = 2, binding = 0 ) uniform BoneOffsetsUBO;
 // layout( std140, set = 2, binding = 1 ) uniform BoneNormalsUBO;
 
-layout( constant_id = 0 ) const int kBoneCount = 128;
+// layout( constant_id = 0 ) const int kBoneCount = 112;
+// #define kBoneCount 112
 
 layout( std140, set = 2, binding = 0 ) uniform BoneOffsetsUBO {
-    mat4 BoneOffsetMatrices[ kBoneCount ];
+    mat4 BoneOffsetMatrices[ 112 ];
 };
 
 layout( std140, set = 2, binding = 1 ) uniform BoneNormalsUBO {
-    mat4 BoneNormalMatrices[ kBoneCount ];
+    mat4 BoneNormalMatrices[ 112 ];
 };
 
 layout( location = 0 ) in vec3 inPosition;

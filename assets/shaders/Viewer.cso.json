@@ -28,6 +28,21 @@
         },
 
         {
+            "srcFile": "shaders/SceneSkinned.vert",
+            "shaderType": "vert"
+        },
+
+        {
+            "srcFile": "shaders/SceneSkinnedTest.vert",
+            "shaderType": "vert"
+        },
+
+        {
+            "srcFile": "shaders/SceneSkinned8.vert",
+            "shaderType": "vert"
+        },
+
+        {
             "srcFile": "shaders/UScene.frag",
             "shaderType": "frag"
         },

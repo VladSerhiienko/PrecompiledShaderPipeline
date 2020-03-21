@@ -220,7 +220,7 @@ ExternalProject_Add(
     UPDATE_COMMAND ""
     PATCH_COMMAND python "${CMAKE_SOURCE_DIR}/dependencies/shaderc/utils/git-sync-deps"
     SOURCE_DIR "${CMAKE_SOURCE_DIR}/dependencies/shaderc"
-    CMAKE_ARGS ${default_cmake_args} -DSHADERC_SKIP_TESTS:BOOL=TRUE -DSHADERC_SKIP_INSTALL:BOOL=TRUE -DSHADERC_ENABLE_SHARED_CRT:BOOL=TRUE
+    CMAKE_ARGS ${default_cmake_args} -DSHADERC_SKIP_TESTS:BOOL=TRUE -DSHADERC_SKIP_INSTALL:BOOL=TRUE -DSHADERC_ENABLE_SHARED_CRT:BOOL=TRUE -DSHADERC_ENABLE_SPVC:BOOL=TRUE
     TEST_COMMAND ""
     INSTALL_COMMAND ""
 )
@@ -233,22 +233,12 @@ message(STATUS "shaderc_source_dir = ${shaderc_source_dir}")
 message(STATUS "shaderc_binary_dir = ${shaderc_binary_dir}")
 
 set(Shaderc_IncludeDir ${shaderc_source_dir}/libshaderc/include)
-set(Shaderc_GlslangDebugCombinedLibrary ${shaderc_binary_dir}/glslc/Debug/libglslc.a)
-set(Shaderc_GlslangReleaseCombinedLibrary ${shaderc_binary_dir}/glslc/Release/libglslc.a)
-set(Shaderc_UtilDebugCombinedLibrary ${shaderc_binary_dir}/libshaderc_util/Debug/libshaderc_util.a)
-set(Shaderc_UtilReleaseCombinedLibrary ${shaderc_binary_dir}/libshaderc_util/Release/libshaderc_util.a)
 set(Shaderc_DebugCombinedLibrary ${shaderc_binary_dir}/libshaderc/Debug/libshaderc_combined.a)
 set(Shaderc_ReleaseCombinedLibrary ${shaderc_binary_dir}/libshaderc/Release/libshaderc_combined.a)
 
 message(STATUS "Shaderc_IncludeDir = ${Shaderc_IncludeDir}")
-message(STATUS "Shaderc_GlslangDebugCombinedLibrary = ${Shaderc_GlslangDebugCombinedLibrary}")
-message(STATUS "Shaderc_GlslangReleaseCombinedLibrary = ${Shaderc_GlslangReleaseCombinedLibrary}")
-message(STATUS "Shaderc_UtilDebugCombinedLibrary = ${Shaderc_UtilDebugCombinedLibrary}")
-message(STATUS "Shaderc_UtilReleaseCombinedLibrary = ${Shaderc_UtilReleaseCombinedLibrary}")
 message(STATUS "Shaderc_DebugCombinedLibrary = ${Shaderc_DebugCombinedLibrary}")
 message(STATUS "Shaderc_ReleaseCombinedLibrary = ${Shaderc_ReleaseCombinedLibrary}")
-
-
 
 if (UNIX AND NOT APPLE)
 add_definitions("-rdynamic")
@@ -374,19 +364,16 @@ target_include_directories(
     ${CMAKE_SOURCE_DIR}/dependencies/cpp-taskflow
     ${CMAKE_SOURCE_DIR}/dependencies/json/include
     ${CMAKE_SOURCE_DIR}/dependencies/flatbuffers/include
+    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/libshaderc/include
+    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross
+    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross/include
     ${CMAKE_SOURCE_DIR}/submodules/eastl/include
     ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EAAssert/include
     ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EABase/include
     ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EABase/include/Common
     ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EAMain/include
     ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EAStdC/include
-    ${Shaderc_IncludeDir}
-    # ${CMAKE_SOURCE_DIR}/dependencies/shaderc/libshaderc/include
-    # ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross
-    # ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross/include
     )
-
-
 
 add_dependencies(
     PrecompiledShaderPipeline
@@ -394,7 +381,6 @@ add_dependencies(
     json
     flatbuffers
     DirectXMath
-    # eastl
     argh
     spdlog
     taskflow
@@ -404,22 +390,28 @@ if (APPLE )
     target_link_libraries(
         PrecompiledShaderPipeline
 
-        # debug ${eastl_binary_dir}/Debug/libEASTL.a
-        # debug ${eastl_binary_dir}/test/packages/EAStdC/Debug/libEAStdC.a
         debug ${flatbuffers_binary_dir}/Debug/libflatbuffers.a
-        debug ${Shaderc_DebugCombinedLibrary}
-        debug ${Shaderc_UtilDebugCombinedLibrary}
-        debug ${Shaderc_GlslangDebugCombinedLibrary}
-        debug /Users/vserhiienko/Projects/PrecompiledShaderPipeline/build_appleclang_xcode/shaderc-prefix/src/shaderc-build/libshaderc_util/Debug/libshaderc_util.a
-        # debug ${shaderc_binary_dir}/libshaderc/Debug/libshaderc_combined.a
+        debug ${shaderc_binary_dir}/libshaderc/Debug/libshaderc_combined.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-util.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-glsl.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-reflect.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-c.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-cpp.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-core.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-msl.a
+        debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-hlsl.a
 
-        # optimized ${eastl_binary_dir}/Release/libEASTL.a
-        # optimized ${eastl_binary_dir}/test/packages/EAStdC/Release/libEAStdC.a
         optimized ${flatbuffers_binary_dir}/Release/libflatbuffers.a
-        optimized ${Shaderc_ReleaseCombinedLibrary}
-        optimized ${Shaderc_UtilReleaseCombinedLibrary}
-        optimized ${Shaderc_GlslangReleaseCombinedLibrary}
-        # optimized ${shaderc_binary_dir}/libshaderc/Release/libshaderc_combined.a
+        optimized ${shaderc_binary_dir}/libshaderc/Release/libshaderc_combined.a
+        optimized ${shaderc_binary_dir}/libshaderc/Release/libshaderc_combined.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-util.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-glsl.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-reflect.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-c.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-cpp.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-core.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-msl.a
+        optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-hlsl.a
         
         dl
         stdc++
@@ -429,20 +421,14 @@ if (APPLE )
 elseif (WIN32)
     target_link_libraries(
         PrecompiledShaderPipeline
-        # ${eastl_binary_dir}${CONFIGURATION_SUFFIX}/EASTL.lib
-        # ${eastl_binary_dir}/test/packages/EAStdC${CONFIGURATION_SUFFIX}/EAStdC.lib
         ${shaderc_binary_dir}/libshaderc${CONFIGURATION_SUFFIX}/shaderc_combined.lib
         ${flatbuffers_binary_dir}${CONFIGURATION_SUFFIX}/flatbuffers.lib
         )
 elseif (UNIX)
     target_link_libraries(
         PrecompiledShaderPipeline
-
-        # ${eastl_binary_dir}${CONFIGURATION_SUFFIX}/libEASTL.a
-        # ${eastl_binary_dir}/test/packages/EAStdC${CONFIGURATION_SUFFIX}/libEAStdC.a
         ${shaderc_binary_dir}/libshaderc${CONFIGURATION_SUFFIX}/libshaderc_combined.a
         ${flatbuffers_binary_dir}${CONFIGURATION_SUFFIX}/libflatbuffers.a
-       
         pthread
         stdc++fs
         dl

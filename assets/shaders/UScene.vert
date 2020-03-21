@@ -39,11 +39,12 @@ layout( std140, set = 1, binding = 0 ) uniform ObjectUBO {
 // layout( std140, set = 2, binding = 0 ) uniform BoneOffsetsUBO;
 // layout( std140, set = 2, binding = 1 ) uniform BoneNormalsUBO;
 
-#ifndef DEFAULT_BONE_COUNT
-#define DEFAULT_BONE_COUNT 128
-#endif
+// #ifndef DEFAULT_BONE_COUNT
+// #define DEFAULT_BONE_COUNT 128
+// #endif
+// layout( constant_id = 0 ) const int kBoneCount = DEFAULT_BONE_COUNT;
 
-layout( constant_id = 0 ) const int kBoneCount = DEFAULT_BONE_COUNT;
+layout( constant_id = 0 ) const int kBoneCount = 128;
 
 layout( std140, set = 2, binding = 0 ) uniform BoneOffsetsUBO {
     mat4 BoneOffsetMatrices[ kBoneCount ];

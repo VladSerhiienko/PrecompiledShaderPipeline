@@ -14,6 +14,16 @@ struct HashedBuffer;
 
 struct CompiledShaderInfo;
 
+struct ReflectedStructMember;
+
+struct ReflectedType;
+
+struct ReflectedResource;
+
+struct ReflectedSpecializationConstant;
+
+struct ReflectedShader;
+
 struct CompiledShader;
 
 struct CompiledShaderCollection;
@@ -114,11 +124,196 @@ inline const char *EnumNameEShader(EShader e) {
   return EnumNamesEShader()[index];
 }
 
+enum ReflectedPrimitiveType {
+  ReflectedPrimitiveType_Struct = 0,
+  ReflectedPrimitiveType_Bool = 1,
+  ReflectedPrimitiveType_Char = 2,
+  ReflectedPrimitiveType_Short = 3,
+  ReflectedPrimitiveType_Int = 4,
+  ReflectedPrimitiveType_Long = 5,
+  ReflectedPrimitiveType_UChar = 6,
+  ReflectedPrimitiveType_UShort = 7,
+  ReflectedPrimitiveType_UInt = 8,
+  ReflectedPrimitiveType_ULong = 9,
+  ReflectedPrimitiveType_Half = 10,
+  ReflectedPrimitiveType_Float = 11,
+  ReflectedPrimitiveType_Double = 12,
+  ReflectedPrimitiveType_Image = 13,
+  ReflectedPrimitiveType_Sampler = 14,
+  ReflectedPrimitiveType_SampledImage = 15,
+  ReflectedPrimitiveType_MIN = ReflectedPrimitiveType_Struct,
+  ReflectedPrimitiveType_MAX = ReflectedPrimitiveType_SampledImage
+};
+
+inline const ReflectedPrimitiveType (&EnumValuesReflectedPrimitiveType())[16] {
+  static const ReflectedPrimitiveType values[] = {
+    ReflectedPrimitiveType_Struct,
+    ReflectedPrimitiveType_Bool,
+    ReflectedPrimitiveType_Char,
+    ReflectedPrimitiveType_Short,
+    ReflectedPrimitiveType_Int,
+    ReflectedPrimitiveType_Long,
+    ReflectedPrimitiveType_UChar,
+    ReflectedPrimitiveType_UShort,
+    ReflectedPrimitiveType_UInt,
+    ReflectedPrimitiveType_ULong,
+    ReflectedPrimitiveType_Half,
+    ReflectedPrimitiveType_Float,
+    ReflectedPrimitiveType_Double,
+    ReflectedPrimitiveType_Image,
+    ReflectedPrimitiveType_Sampler,
+    ReflectedPrimitiveType_SampledImage
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesReflectedPrimitiveType() {
+  static const char * const names[] = {
+    "Struct",
+    "Bool",
+    "Char",
+    "Short",
+    "Int",
+    "Long",
+    "UChar",
+    "UShort",
+    "UInt",
+    "ULong",
+    "Half",
+    "Float",
+    "Double",
+    "Image",
+    "Sampler",
+    "SampledImage",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameReflectedPrimitiveType(ReflectedPrimitiveType e) {
+  if (e < ReflectedPrimitiveType_Struct || e > ReflectedPrimitiveType_SampledImage) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesReflectedPrimitiveType()[index];
+}
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) ReflectedStructMember FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t name_string_index_;
+  uint32_t reflected_type_index_;
+  uint32_t offset_;
+
+ public:
+  ReflectedStructMember() {
+    memset(static_cast<void *>(this), 0, sizeof(ReflectedStructMember));
+  }
+  ReflectedStructMember(uint32_t _name_string_index, uint32_t _reflected_type_index, uint32_t _offset)
+      : name_string_index_(flatbuffers::EndianScalar(_name_string_index)),
+        reflected_type_index_(flatbuffers::EndianScalar(_reflected_type_index)),
+        offset_(flatbuffers::EndianScalar(_offset)) {
+  }
+  uint32_t name_string_index() const {
+    return flatbuffers::EndianScalar(name_string_index_);
+  }
+  uint32_t reflected_type_index() const {
+    return flatbuffers::EndianScalar(reflected_type_index_);
+  }
+  uint32_t offset() const {
+    return flatbuffers::EndianScalar(offset_);
+  }
+};
+FLATBUFFERS_STRUCT_END(ReflectedStructMember, 12);
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) ReflectedResource FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t name_string_index_;
+  uint32_t reflected_type_index_;
+  uint32_t resource_size_;
+  uint32_t descriptor_set_;
+  uint32_t binding_;
+  uint32_t hash_;
+
+ public:
+  ReflectedResource() {
+    memset(static_cast<void *>(this), 0, sizeof(ReflectedResource));
+  }
+  ReflectedResource(uint32_t _name_string_index, uint32_t _reflected_type_index, uint32_t _resource_size, uint32_t _descriptor_set, uint32_t _binding, uint32_t _hash)
+      : name_string_index_(flatbuffers::EndianScalar(_name_string_index)),
+        reflected_type_index_(flatbuffers::EndianScalar(_reflected_type_index)),
+        resource_size_(flatbuffers::EndianScalar(_resource_size)),
+        descriptor_set_(flatbuffers::EndianScalar(_descriptor_set)),
+        binding_(flatbuffers::EndianScalar(_binding)),
+        hash_(flatbuffers::EndianScalar(_hash)) {
+  }
+  uint32_t name_string_index() const {
+    return flatbuffers::EndianScalar(name_string_index_);
+  }
+  uint32_t reflected_type_index() const {
+    return flatbuffers::EndianScalar(reflected_type_index_);
+  }
+  uint32_t resource_size() const {
+    return flatbuffers::EndianScalar(resource_size_);
+  }
+  uint32_t descriptor_set() const {
+    return flatbuffers::EndianScalar(descriptor_set_);
+  }
+  uint32_t binding() const {
+    return flatbuffers::EndianScalar(binding_);
+  }
+  uint32_t hash() const {
+    return flatbuffers::EndianScalar(hash_);
+  }
+};
+FLATBUFFERS_STRUCT_END(ReflectedResource, 24);
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) ReflectedSpecializationConstant FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t name_string_index_;
+  uint32_t constant_id_;
+  uint32_t reflected_type_index_;
+  uint8_t used_as_array_length_;
+  int8_t padding0__;  int16_t padding1__;
+  uint32_t hash_;
+
+ public:
+  ReflectedSpecializationConstant() {
+    memset(static_cast<void *>(this), 0, sizeof(ReflectedSpecializationConstant));
+  }
+  ReflectedSpecializationConstant(uint32_t _name_string_index, uint32_t _constant_id, uint32_t _reflected_type_index, bool _used_as_array_length, uint32_t _hash)
+      : name_string_index_(flatbuffers::EndianScalar(_name_string_index)),
+        constant_id_(flatbuffers::EndianScalar(_constant_id)),
+        reflected_type_index_(flatbuffers::EndianScalar(_reflected_type_index)),
+        used_as_array_length_(flatbuffers::EndianScalar(static_cast<uint8_t>(_used_as_array_length))),
+        padding0__(0),
+        padding1__(0),
+        hash_(flatbuffers::EndianScalar(_hash)) {
+    (void)padding0__;    (void)padding1__;
+  }
+  uint32_t name_string_index() const {
+    return flatbuffers::EndianScalar(name_string_index_);
+  }
+  uint32_t constant_id() const {
+    return flatbuffers::EndianScalar(constant_id_);
+  }
+  uint32_t reflected_type_index() const {
+    return flatbuffers::EndianScalar(reflected_type_index_);
+  }
+  bool used_as_array_length() const {
+    return flatbuffers::EndianScalar(used_as_array_length_) != 0;
+  }
+  uint32_t hash() const {
+    return flatbuffers::EndianScalar(hash_);
+  }
+};
+FLATBUFFERS_STRUCT_END(ReflectedSpecializationConstant, 20);
+
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
  private:
   uint32_t preprocessed_string_index_;
   uint32_t assembly_string_index_;
+  uint32_t compiled_glsl_string_index_;
+  uint32_t compiled_msl_string_index_;
   uint32_t compiled_buffer_index_;
+  uint32_t reflected_shader_index_;
   uint8_t type_;
   int8_t padding0__;  int16_t padding1__;
   uint32_t hash_;
@@ -127,10 +322,13 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
   CompiledShader() {
     memset(static_cast<void *>(this), 0, sizeof(CompiledShader));
   }
-  CompiledShader(uint32_t _preprocessed_string_index, uint32_t _assembly_string_index, uint32_t _compiled_buffer_index, EIR _type, uint32_t _hash)
+  CompiledShader(uint32_t _preprocessed_string_index, uint32_t _assembly_string_index, uint32_t _compiled_glsl_string_index, uint32_t _compiled_msl_string_index, uint32_t _compiled_buffer_index, uint32_t _reflected_shader_index, EIR _type, uint32_t _hash)
       : preprocessed_string_index_(flatbuffers::EndianScalar(_preprocessed_string_index)),
         assembly_string_index_(flatbuffers::EndianScalar(_assembly_string_index)),
+        compiled_glsl_string_index_(flatbuffers::EndianScalar(_compiled_glsl_string_index)),
+        compiled_msl_string_index_(flatbuffers::EndianScalar(_compiled_msl_string_index)),
         compiled_buffer_index_(flatbuffers::EndianScalar(_compiled_buffer_index)),
+        reflected_shader_index_(flatbuffers::EndianScalar(_reflected_shader_index)),
         type_(flatbuffers::EndianScalar(static_cast<uint8_t>(_type))),
         padding0__(0),
         padding1__(0),
@@ -143,8 +341,17 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
   uint32_t assembly_string_index() const {
     return flatbuffers::EndianScalar(assembly_string_index_);
   }
+  uint32_t compiled_glsl_string_index() const {
+    return flatbuffers::EndianScalar(compiled_glsl_string_index_);
+  }
+  uint32_t compiled_msl_string_index() const {
+    return flatbuffers::EndianScalar(compiled_msl_string_index_);
+  }
   uint32_t compiled_buffer_index() const {
     return flatbuffers::EndianScalar(compiled_buffer_index_);
+  }
+  uint32_t reflected_shader_index() const {
+    return flatbuffers::EndianScalar(reflected_shader_index_);
   }
   EIR type() const {
     return static_cast<EIR>(flatbuffers::EndianScalar(type_));
@@ -153,7 +360,7 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
     return flatbuffers::EndianScalar(hash_);
   }
 };
-FLATBUFFERS_STRUCT_END(CompiledShader, 20);
+FLATBUFFERS_STRUCT_END(CompiledShader, 32);
 
 struct HashedString FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -290,7 +497,7 @@ struct CompiledShaderInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_HASH = 16
   };
   EShader type() const {
-    return static_cast<EShader>(GetField<uint32_t>(VT_TYPE, 0));
+    return static_cast<EShader>(GetField<uint8_t>(VT_TYPE, 0));
   }
   uint32_t compiled_shader_index() const {
     return GetField<uint32_t>(VT_COMPILED_SHADER_INDEX, 0);
@@ -312,7 +519,7 @@ struct CompiledShaderInfo FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_TYPE) &&
            VerifyField<uint32_t>(verifier, VT_COMPILED_SHADER_INDEX) &&
            VerifyField<uint32_t>(verifier, VT_ASSET_STRING_INDEX) &&
            VerifyField<uint32_t>(verifier, VT_DEFINITIONS_STRING_INDEX) &&
@@ -329,7 +536,7 @@ struct CompiledShaderInfoBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_type(EShader type) {
-    fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_TYPE, static_cast<uint32_t>(type), 0);
+    fbb_.AddElement<uint8_t>(CompiledShaderInfo::VT_TYPE, static_cast<uint8_t>(type), 0);
   }
   void add_compiled_shader_index(uint32_t compiled_shader_index) {
     fbb_.AddElement<uint32_t>(CompiledShaderInfo::VT_COMPILED_SHADER_INDEX, compiled_shader_index, 0);
@@ -403,13 +610,373 @@ inline flatbuffers::Offset<CompiledShaderInfo> CreateCompiledShaderInfoDirect(
       hash);
 }
 
+struct ReflectedType FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME_STRING_INDEX = 4,
+    VT_SIZE = 6,
+    VT_ARRAY_SIZE = 8,
+    VT_IS_ARRAY_SIZE_LITERAL = 10,
+    VT_ARRAY_STRIDE = 12,
+    VT_VECTOR_SIZE = 14,
+    VT_COLUMN_COUNT = 16,
+    VT_MATRIX_STRIDE = 18,
+    VT_PRIMITIVE_TYPE = 20,
+    VT_STRUCT_MEMBERS = 22,
+    VT_HASH = 24
+  };
+  uint32_t name_string_index() const {
+    return GetField<uint32_t>(VT_NAME_STRING_INDEX, 0);
+  }
+  uint32_t size() const {
+    return GetField<uint32_t>(VT_SIZE, 0);
+  }
+  uint32_t array_size() const {
+    return GetField<uint32_t>(VT_ARRAY_SIZE, 0);
+  }
+  bool is_array_size_literal() const {
+    return GetField<uint8_t>(VT_IS_ARRAY_SIZE_LITERAL, 0) != 0;
+  }
+  uint32_t array_stride() const {
+    return GetField<uint32_t>(VT_ARRAY_STRIDE, 0);
+  }
+  uint32_t vector_size() const {
+    return GetField<uint32_t>(VT_VECTOR_SIZE, 0);
+  }
+  uint32_t column_count() const {
+    return GetField<uint32_t>(VT_COLUMN_COUNT, 0);
+  }
+  uint32_t matrix_stride() const {
+    return GetField<uint32_t>(VT_MATRIX_STRIDE, 0);
+  }
+  ReflectedPrimitiveType primitive_type() const {
+    return static_cast<ReflectedPrimitiveType>(GetField<uint8_t>(VT_PRIMITIVE_TYPE, 0));
+  }
+  const flatbuffers::Vector<const ReflectedStructMember *> *struct_members() const {
+    return GetPointer<const flatbuffers::Vector<const ReflectedStructMember *> *>(VT_STRUCT_MEMBERS);
+  }
+  uint32_t hash() const {
+    return GetField<uint32_t>(VT_HASH, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_NAME_STRING_INDEX) &&
+           VerifyField<uint32_t>(verifier, VT_SIZE) &&
+           VerifyField<uint32_t>(verifier, VT_ARRAY_SIZE) &&
+           VerifyField<uint8_t>(verifier, VT_IS_ARRAY_SIZE_LITERAL) &&
+           VerifyField<uint32_t>(verifier, VT_ARRAY_STRIDE) &&
+           VerifyField<uint32_t>(verifier, VT_VECTOR_SIZE) &&
+           VerifyField<uint32_t>(verifier, VT_COLUMN_COUNT) &&
+           VerifyField<uint32_t>(verifier, VT_MATRIX_STRIDE) &&
+           VerifyField<uint8_t>(verifier, VT_PRIMITIVE_TYPE) &&
+           VerifyOffset(verifier, VT_STRUCT_MEMBERS) &&
+           verifier.VerifyVector(struct_members()) &&
+           VerifyField<uint32_t>(verifier, VT_HASH) &&
+           verifier.EndTable();
+  }
+};
+
+struct ReflectedTypeBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name_string_index(uint32_t name_string_index) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_NAME_STRING_INDEX, name_string_index, 0);
+  }
+  void add_size(uint32_t size) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_SIZE, size, 0);
+  }
+  void add_array_size(uint32_t array_size) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_ARRAY_SIZE, array_size, 0);
+  }
+  void add_is_array_size_literal(bool is_array_size_literal) {
+    fbb_.AddElement<uint8_t>(ReflectedType::VT_IS_ARRAY_SIZE_LITERAL, static_cast<uint8_t>(is_array_size_literal), 0);
+  }
+  void add_array_stride(uint32_t array_stride) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_ARRAY_STRIDE, array_stride, 0);
+  }
+  void add_vector_size(uint32_t vector_size) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_VECTOR_SIZE, vector_size, 0);
+  }
+  void add_column_count(uint32_t column_count) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_COLUMN_COUNT, column_count, 0);
+  }
+  void add_matrix_stride(uint32_t matrix_stride) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_MATRIX_STRIDE, matrix_stride, 0);
+  }
+  void add_primitive_type(ReflectedPrimitiveType primitive_type) {
+    fbb_.AddElement<uint8_t>(ReflectedType::VT_PRIMITIVE_TYPE, static_cast<uint8_t>(primitive_type), 0);
+  }
+  void add_struct_members(flatbuffers::Offset<flatbuffers::Vector<const ReflectedStructMember *>> struct_members) {
+    fbb_.AddOffset(ReflectedType::VT_STRUCT_MEMBERS, struct_members);
+  }
+  void add_hash(uint32_t hash) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_HASH, hash, 0);
+  }
+  explicit ReflectedTypeBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ReflectedTypeBuilder &operator=(const ReflectedTypeBuilder &);
+  flatbuffers::Offset<ReflectedType> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<ReflectedType>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<ReflectedType> CreateReflectedType(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t name_string_index = 0,
+    uint32_t size = 0,
+    uint32_t array_size = 0,
+    bool is_array_size_literal = false,
+    uint32_t array_stride = 0,
+    uint32_t vector_size = 0,
+    uint32_t column_count = 0,
+    uint32_t matrix_stride = 0,
+    ReflectedPrimitiveType primitive_type = ReflectedPrimitiveType_Struct,
+    flatbuffers::Offset<flatbuffers::Vector<const ReflectedStructMember *>> struct_members = 0,
+    uint32_t hash = 0) {
+  ReflectedTypeBuilder builder_(_fbb);
+  builder_.add_hash(hash);
+  builder_.add_struct_members(struct_members);
+  builder_.add_matrix_stride(matrix_stride);
+  builder_.add_column_count(column_count);
+  builder_.add_vector_size(vector_size);
+  builder_.add_array_stride(array_stride);
+  builder_.add_array_size(array_size);
+  builder_.add_size(size);
+  builder_.add_name_string_index(name_string_index);
+  builder_.add_primitive_type(primitive_type);
+  builder_.add_is_array_size_literal(is_array_size_literal);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<ReflectedType> CreateReflectedTypeDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t name_string_index = 0,
+    uint32_t size = 0,
+    uint32_t array_size = 0,
+    bool is_array_size_literal = false,
+    uint32_t array_stride = 0,
+    uint32_t vector_size = 0,
+    uint32_t column_count = 0,
+    uint32_t matrix_stride = 0,
+    ReflectedPrimitiveType primitive_type = ReflectedPrimitiveType_Struct,
+    const std::vector<ReflectedStructMember> *struct_members = nullptr,
+    uint32_t hash = 0) {
+  auto struct_members__ = struct_members ? _fbb.CreateVectorOfStructs<ReflectedStructMember>(*struct_members) : 0;
+  return cso::CreateReflectedType(
+      _fbb,
+      name_string_index,
+      size,
+      array_size,
+      is_array_size_literal,
+      array_stride,
+      vector_size,
+      column_count,
+      matrix_stride,
+      primitive_type,
+      struct_members__,
+      hash);
+}
+
+struct ReflectedShader FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME_STRING_INDEX = 4,
+    VT_REFLECTED_STAGE_INPUT_INDICES = 6,
+    VT_REFLECTED_STAGE_OUTPUT_INDICES = 8,
+    VT_REFLECTED_SUBPASS_INPUT_INDICES = 10,
+    VT_REFLECTED_UNIFORM_BUFFER_INDICES = 12,
+    VT_REFLECTED_PUSH_CONSTANT_BUFFER_INDICES = 14,
+    VT_REFLECTED_IMAGE_INDICES = 16,
+    VT_REFLECTED_SAMPLER_INDICES = 18,
+    VT_REFLECTED_SAMPLED_IMAGE_INDICES = 20,
+    VT_REFLECTED_SPECIALIZATION_CONSTANT_INDICES = 22,
+    VT_HASH = 24
+  };
+  uint32_t name_string_index() const {
+    return GetField<uint32_t>(VT_NAME_STRING_INDEX, 0);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_stage_input_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_STAGE_INPUT_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_stage_output_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_STAGE_OUTPUT_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_subpass_input_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_SUBPASS_INPUT_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_uniform_buffer_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_UNIFORM_BUFFER_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_push_constant_buffer_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_PUSH_CONSTANT_BUFFER_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_image_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_IMAGE_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_sampler_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_SAMPLER_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_sampled_image_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_SAMPLED_IMAGE_INDICES);
+  }
+  const flatbuffers::Vector<uint32_t> *reflected_specialization_constant_indices() const {
+    return GetPointer<const flatbuffers::Vector<uint32_t> *>(VT_REFLECTED_SPECIALIZATION_CONSTANT_INDICES);
+  }
+  uint32_t hash() const {
+    return GetField<uint32_t>(VT_HASH, 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_NAME_STRING_INDEX) &&
+           VerifyOffset(verifier, VT_REFLECTED_STAGE_INPUT_INDICES) &&
+           verifier.VerifyVector(reflected_stage_input_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_STAGE_OUTPUT_INDICES) &&
+           verifier.VerifyVector(reflected_stage_output_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_SUBPASS_INPUT_INDICES) &&
+           verifier.VerifyVector(reflected_subpass_input_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_UNIFORM_BUFFER_INDICES) &&
+           verifier.VerifyVector(reflected_uniform_buffer_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_PUSH_CONSTANT_BUFFER_INDICES) &&
+           verifier.VerifyVector(reflected_push_constant_buffer_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_IMAGE_INDICES) &&
+           verifier.VerifyVector(reflected_image_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_SAMPLER_INDICES) &&
+           verifier.VerifyVector(reflected_sampler_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_SAMPLED_IMAGE_INDICES) &&
+           verifier.VerifyVector(reflected_sampled_image_indices()) &&
+           VerifyOffset(verifier, VT_REFLECTED_SPECIALIZATION_CONSTANT_INDICES) &&
+           verifier.VerifyVector(reflected_specialization_constant_indices()) &&
+           VerifyField<uint32_t>(verifier, VT_HASH) &&
+           verifier.EndTable();
+  }
+};
+
+struct ReflectedShaderBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_name_string_index(uint32_t name_string_index) {
+    fbb_.AddElement<uint32_t>(ReflectedShader::VT_NAME_STRING_INDEX, name_string_index, 0);
+  }
+  void add_reflected_stage_input_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_stage_input_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_STAGE_INPUT_INDICES, reflected_stage_input_indices);
+  }
+  void add_reflected_stage_output_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_stage_output_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_STAGE_OUTPUT_INDICES, reflected_stage_output_indices);
+  }
+  void add_reflected_subpass_input_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_subpass_input_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_SUBPASS_INPUT_INDICES, reflected_subpass_input_indices);
+  }
+  void add_reflected_uniform_buffer_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_uniform_buffer_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_UNIFORM_BUFFER_INDICES, reflected_uniform_buffer_indices);
+  }
+  void add_reflected_push_constant_buffer_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_push_constant_buffer_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_PUSH_CONSTANT_BUFFER_INDICES, reflected_push_constant_buffer_indices);
+  }
+  void add_reflected_image_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_image_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_IMAGE_INDICES, reflected_image_indices);
+  }
+  void add_reflected_sampler_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_sampler_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_SAMPLER_INDICES, reflected_sampler_indices);
+  }
+  void add_reflected_sampled_image_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_sampled_image_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_SAMPLED_IMAGE_INDICES, reflected_sampled_image_indices);
+  }
+  void add_reflected_specialization_constant_indices(flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_specialization_constant_indices) {
+    fbb_.AddOffset(ReflectedShader::VT_REFLECTED_SPECIALIZATION_CONSTANT_INDICES, reflected_specialization_constant_indices);
+  }
+  void add_hash(uint32_t hash) {
+    fbb_.AddElement<uint32_t>(ReflectedShader::VT_HASH, hash, 0);
+  }
+  explicit ReflectedShaderBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ReflectedShaderBuilder &operator=(const ReflectedShaderBuilder &);
+  flatbuffers::Offset<ReflectedShader> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<ReflectedShader>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<ReflectedShader> CreateReflectedShader(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t name_string_index = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_stage_input_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_stage_output_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_subpass_input_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_uniform_buffer_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_push_constant_buffer_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_image_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_sampler_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_sampled_image_indices = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint32_t>> reflected_specialization_constant_indices = 0,
+    uint32_t hash = 0) {
+  ReflectedShaderBuilder builder_(_fbb);
+  builder_.add_hash(hash);
+  builder_.add_reflected_specialization_constant_indices(reflected_specialization_constant_indices);
+  builder_.add_reflected_sampled_image_indices(reflected_sampled_image_indices);
+  builder_.add_reflected_sampler_indices(reflected_sampler_indices);
+  builder_.add_reflected_image_indices(reflected_image_indices);
+  builder_.add_reflected_push_constant_buffer_indices(reflected_push_constant_buffer_indices);
+  builder_.add_reflected_uniform_buffer_indices(reflected_uniform_buffer_indices);
+  builder_.add_reflected_subpass_input_indices(reflected_subpass_input_indices);
+  builder_.add_reflected_stage_output_indices(reflected_stage_output_indices);
+  builder_.add_reflected_stage_input_indices(reflected_stage_input_indices);
+  builder_.add_name_string_index(name_string_index);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<ReflectedShader> CreateReflectedShaderDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t name_string_index = 0,
+    const std::vector<uint32_t> *reflected_stage_input_indices = nullptr,
+    const std::vector<uint32_t> *reflected_stage_output_indices = nullptr,
+    const std::vector<uint32_t> *reflected_subpass_input_indices = nullptr,
+    const std::vector<uint32_t> *reflected_uniform_buffer_indices = nullptr,
+    const std::vector<uint32_t> *reflected_push_constant_buffer_indices = nullptr,
+    const std::vector<uint32_t> *reflected_image_indices = nullptr,
+    const std::vector<uint32_t> *reflected_sampler_indices = nullptr,
+    const std::vector<uint32_t> *reflected_sampled_image_indices = nullptr,
+    const std::vector<uint32_t> *reflected_specialization_constant_indices = nullptr,
+    uint32_t hash = 0) {
+  auto reflected_stage_input_indices__ = reflected_stage_input_indices ? _fbb.CreateVector<uint32_t>(*reflected_stage_input_indices) : 0;
+  auto reflected_stage_output_indices__ = reflected_stage_output_indices ? _fbb.CreateVector<uint32_t>(*reflected_stage_output_indices) : 0;
+  auto reflected_subpass_input_indices__ = reflected_subpass_input_indices ? _fbb.CreateVector<uint32_t>(*reflected_subpass_input_indices) : 0;
+  auto reflected_uniform_buffer_indices__ = reflected_uniform_buffer_indices ? _fbb.CreateVector<uint32_t>(*reflected_uniform_buffer_indices) : 0;
+  auto reflected_push_constant_buffer_indices__ = reflected_push_constant_buffer_indices ? _fbb.CreateVector<uint32_t>(*reflected_push_constant_buffer_indices) : 0;
+  auto reflected_image_indices__ = reflected_image_indices ? _fbb.CreateVector<uint32_t>(*reflected_image_indices) : 0;
+  auto reflected_sampler_indices__ = reflected_sampler_indices ? _fbb.CreateVector<uint32_t>(*reflected_sampler_indices) : 0;
+  auto reflected_sampled_image_indices__ = reflected_sampled_image_indices ? _fbb.CreateVector<uint32_t>(*reflected_sampled_image_indices) : 0;
+  auto reflected_specialization_constant_indices__ = reflected_specialization_constant_indices ? _fbb.CreateVector<uint32_t>(*reflected_specialization_constant_indices) : 0;
+  return cso::CreateReflectedShader(
+      _fbb,
+      name_string_index,
+      reflected_stage_input_indices__,
+      reflected_stage_output_indices__,
+      reflected_subpass_input_indices__,
+      reflected_uniform_buffer_indices__,
+      reflected_push_constant_buffer_indices__,
+      reflected_image_indices__,
+      reflected_sampler_indices__,
+      reflected_sampled_image_indices__,
+      reflected_specialization_constant_indices__,
+      hash);
+}
+
 struct CompiledShaderCollection FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
     VT_COMPILED_SHADER_INFOS = 6,
     VT_COMPILED_SHADERS = 8,
-    VT_HASHED_STRINGS = 10,
-    VT_HASHED_BUFFERS = 12
+    VT_REFLECTED_SHADERS = 10,
+    VT_REFLECTED_TYPES = 12,
+    VT_REFLECTED_RESOURCES = 14,
+    VT_REFLECTED_SPECIALIZATION_CONSTANTS = 16,
+    VT_HASHED_STRINGS = 18,
+    VT_HASHED_BUFFERS = 20
   };
   EVersion version() const {
     return static_cast<EVersion>(GetField<uint8_t>(VT_VERSION, 0));
@@ -419,6 +986,18 @@ struct CompiledShaderCollection FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   }
   const flatbuffers::Vector<const CompiledShader *> *compiled_shaders() const {
     return GetPointer<const flatbuffers::Vector<const CompiledShader *> *>(VT_COMPILED_SHADERS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<ReflectedShader>> *reflected_shaders() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ReflectedShader>> *>(VT_REFLECTED_SHADERS);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<ReflectedType>> *reflected_types() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<ReflectedType>> *>(VT_REFLECTED_TYPES);
+  }
+  const flatbuffers::Vector<const ReflectedResource *> *reflected_resources() const {
+    return GetPointer<const flatbuffers::Vector<const ReflectedResource *> *>(VT_REFLECTED_RESOURCES);
+  }
+  const flatbuffers::Vector<const ReflectedSpecializationConstant *> *reflected_specialization_constants() const {
+    return GetPointer<const flatbuffers::Vector<const ReflectedSpecializationConstant *> *>(VT_REFLECTED_SPECIALIZATION_CONSTANTS);
   }
   const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *hashed_strings() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<HashedString>> *>(VT_HASHED_STRINGS);
@@ -434,6 +1013,16 @@ struct CompiledShaderCollection FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
            verifier.VerifyVectorOfTables(compiled_shader_infos()) &&
            VerifyOffset(verifier, VT_COMPILED_SHADERS) &&
            verifier.VerifyVector(compiled_shaders()) &&
+           VerifyOffset(verifier, VT_REFLECTED_SHADERS) &&
+           verifier.VerifyVector(reflected_shaders()) &&
+           verifier.VerifyVectorOfTables(reflected_shaders()) &&
+           VerifyOffset(verifier, VT_REFLECTED_TYPES) &&
+           verifier.VerifyVector(reflected_types()) &&
+           verifier.VerifyVectorOfTables(reflected_types()) &&
+           VerifyOffset(verifier, VT_REFLECTED_RESOURCES) &&
+           verifier.VerifyVector(reflected_resources()) &&
+           VerifyOffset(verifier, VT_REFLECTED_SPECIALIZATION_CONSTANTS) &&
+           verifier.VerifyVector(reflected_specialization_constants()) &&
            VerifyOffset(verifier, VT_HASHED_STRINGS) &&
            verifier.VerifyVector(hashed_strings()) &&
            verifier.VerifyVectorOfTables(hashed_strings()) &&
@@ -455,6 +1044,18 @@ struct CompiledShaderCollectionBuilder {
   }
   void add_compiled_shaders(flatbuffers::Offset<flatbuffers::Vector<const CompiledShader *>> compiled_shaders) {
     fbb_.AddOffset(CompiledShaderCollection::VT_COMPILED_SHADERS, compiled_shaders);
+  }
+  void add_reflected_shaders(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ReflectedShader>>> reflected_shaders) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_REFLECTED_SHADERS, reflected_shaders);
+  }
+  void add_reflected_types(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ReflectedType>>> reflected_types) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_REFLECTED_TYPES, reflected_types);
+  }
+  void add_reflected_resources(flatbuffers::Offset<flatbuffers::Vector<const ReflectedResource *>> reflected_resources) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_REFLECTED_RESOURCES, reflected_resources);
+  }
+  void add_reflected_specialization_constants(flatbuffers::Offset<flatbuffers::Vector<const ReflectedSpecializationConstant *>> reflected_specialization_constants) {
+    fbb_.AddOffset(CompiledShaderCollection::VT_REFLECTED_SPECIALIZATION_CONSTANTS, reflected_specialization_constants);
   }
   void add_hashed_strings(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_strings) {
     fbb_.AddOffset(CompiledShaderCollection::VT_HASHED_STRINGS, hashed_strings);
@@ -479,11 +1080,19 @@ inline flatbuffers::Offset<CompiledShaderCollection> CreateCompiledShaderCollect
     EVersion version = EVersion_Value,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<CompiledShaderInfo>>> compiled_shader_infos = 0,
     flatbuffers::Offset<flatbuffers::Vector<const CompiledShader *>> compiled_shaders = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ReflectedShader>>> reflected_shaders = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ReflectedType>>> reflected_types = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const ReflectedResource *>> reflected_resources = 0,
+    flatbuffers::Offset<flatbuffers::Vector<const ReflectedSpecializationConstant *>> reflected_specialization_constants = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedString>>> hashed_strings = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<HashedBuffer>>> hashed_buffers = 0) {
   CompiledShaderCollectionBuilder builder_(_fbb);
   builder_.add_hashed_buffers(hashed_buffers);
   builder_.add_hashed_strings(hashed_strings);
+  builder_.add_reflected_specialization_constants(reflected_specialization_constants);
+  builder_.add_reflected_resources(reflected_resources);
+  builder_.add_reflected_types(reflected_types);
+  builder_.add_reflected_shaders(reflected_shaders);
   builder_.add_compiled_shaders(compiled_shaders);
   builder_.add_compiled_shader_infos(compiled_shader_infos);
   builder_.add_version(version);
@@ -495,10 +1104,18 @@ inline flatbuffers::Offset<CompiledShaderCollection> CreateCompiledShaderCollect
     EVersion version = EVersion_Value,
     const std::vector<flatbuffers::Offset<CompiledShaderInfo>> *compiled_shader_infos = nullptr,
     const std::vector<CompiledShader> *compiled_shaders = nullptr,
+    const std::vector<flatbuffers::Offset<ReflectedShader>> *reflected_shaders = nullptr,
+    const std::vector<flatbuffers::Offset<ReflectedType>> *reflected_types = nullptr,
+    const std::vector<ReflectedResource> *reflected_resources = nullptr,
+    const std::vector<ReflectedSpecializationConstant> *reflected_specialization_constants = nullptr,
     const std::vector<flatbuffers::Offset<HashedString>> *hashed_strings = nullptr,
     const std::vector<flatbuffers::Offset<HashedBuffer>> *hashed_buffers = nullptr) {
   auto compiled_shader_infos__ = compiled_shader_infos ? _fbb.CreateVector<flatbuffers::Offset<CompiledShaderInfo>>(*compiled_shader_infos) : 0;
   auto compiled_shaders__ = compiled_shaders ? _fbb.CreateVectorOfStructs<CompiledShader>(*compiled_shaders) : 0;
+  auto reflected_shaders__ = reflected_shaders ? _fbb.CreateVector<flatbuffers::Offset<ReflectedShader>>(*reflected_shaders) : 0;
+  auto reflected_types__ = reflected_types ? _fbb.CreateVector<flatbuffers::Offset<ReflectedType>>(*reflected_types) : 0;
+  auto reflected_resources__ = reflected_resources ? _fbb.CreateVectorOfStructs<ReflectedResource>(*reflected_resources) : 0;
+  auto reflected_specialization_constants__ = reflected_specialization_constants ? _fbb.CreateVectorOfStructs<ReflectedSpecializationConstant>(*reflected_specialization_constants) : 0;
   auto hashed_strings__ = hashed_strings ? _fbb.CreateVector<flatbuffers::Offset<HashedString>>(*hashed_strings) : 0;
   auto hashed_buffers__ = hashed_buffers ? _fbb.CreateVector<flatbuffers::Offset<HashedBuffer>>(*hashed_buffers) : 0;
   return cso::CreateCompiledShaderCollection(
@@ -506,6 +1123,10 @@ inline flatbuffers::Offset<CompiledShaderCollection> CreateCompiledShaderCollect
       version,
       compiled_shader_infos__,
       compiled_shaders__,
+      reflected_shaders__,
+      reflected_types__,
+      reflected_resources__,
+      reflected_specialization_constants__,
       hashed_strings__,
       hashed_buffers__);
 }

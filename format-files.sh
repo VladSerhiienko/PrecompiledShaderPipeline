@@ -1,3 +1,4 @@
+clang-format --style=file -i "src/shaderc/ShaderCompiler.Vulkan.h"
 clang-format --style=file -i "src/shaderc/ShaderCompiler.Vulkan.cpp"
 clang-format --style=file -i "src/shaderc/main.cpp"
 clang-format --style=file -i "src/apemode/platform/AppState.cpp"

@@ -85,6 +85,8 @@ public:
     std::string Assembly = "";
     std::string Asset = "";
     std::string Definitions = "";
+    std::string CompiledGLSL = "";
+    std::string CompiledMSL = "";
     std::vector<uint8_t> Compiled = {};
     cso::EShader Type = cso::EShader::EShader_MAX;
     std::set<std::string> IncludedFiles;
@@ -96,6 +98,8 @@ public:
     uint32_t PreprocessedIndex = 0;
     uint32_t AssemblyIndex = 0;
     uint32_t CompiledIndex = 0;
+    uint32_t GLSLIndex = 0;
+    uint32_t MSLIndex = 0;
     uint32_t Hash = 0;
 };
 
@@ -150,6 +154,9 @@ public:
             compiledShaderOffsets.push_back(cso::CompiledShader(compiledShader.PreprocessedIndex,
                                                                 compiledShader.AssemblyIndex,
                                                                 compiledShader.CompiledIndex,
+                                                                compiledShader.GLSLIndex,
+                                                                compiledShader.MSLIndex,
+                                                                -1,
                                                                 cso::EIR_SPIRV,
                                                                 compiledShader.Hash));
             apemode::LogInfo("+ CSO -> {}", compiledShader.CompiledIndex);
@@ -184,6 +191,10 @@ public:
                                                 cso::EVersion_Value,
                                                 compiledShaderInfosOffset,
                                                 compiledShadersOffset,
+                                                0,
+                                                0,
+                                                0,
+                                                0,
                                                 hashedStringsOffset,
                                                 hashedBuffersOffset);
 
@@ -194,6 +205,8 @@ public:
         for (auto& cso : variants) {
             CompiledShader compiledShader = {};
             compiledShader.CompiledIndex = GetBufferIndex(cso.Compiled);
+            compiledShader.GLSLIndex = GetStringIndex(cso.CompiledGLSL);
+            compiledShader.MSLIndex = GetStringIndex(cso.CompiledMSL);
             compiledShader.AssemblyIndex = GetStringIndex(cso.Assembly);
             compiledShader.PreprocessedIndex = GetStringIndex(cso.Preprocessed);
             compiledShader.Hash = buffers[compiledShader.CompiledIndex].Hash;
@@ -505,17 +518,19 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
     if (auto compiledShader = shaderCompiler.Compile(srcFile,
                                                      &concreteMacros,
                                                      eShaderType,
-                                                     apemode::shp::IShaderCompiler::eShaderOptimization_Performance,
+                                                     apemode::shp::IShaderCompiler::eShaderOptimization_None,
                                                      &includedFileSet)) {
         cso.Compiled.assign(compiledShader->GetBytePtr(),
                             compiledShader->GetBytePtr() + compiledShader->GetByteCount());
         cso.Preprocessed = compiledShader->GetPreprocessedSrc();
         cso.Assembly = compiledShader->GetAssemblySrc();
+        cso.CompiledGLSL = compiledShader->GetCompiledGLSL();
+        cso.CompiledMSL = compiledShader->GetCompiledMSL();
+        cso.IncludedFiles = includedFileSet.IncludedFiles;
+        cso.DefinitionMap = macroDefinitions;
         cso.Definitions = macrosString;
         cso.Asset = srcFile;
         cso.Type = cso::EShader(eShaderType);
-        cso.IncludedFiles = includedFileSet.IncludedFiles;
-        cso.DefinitionMap = macroDefinitions;
 
         ReplaceAll(macrosString, ".", "-");
         ReplaceAll(macrosString, ";", "+");
@@ -533,10 +548,13 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
 
         std::string cachedPreprocessed = dstFilePath + "-preprocessed.txt";
         std::string cachedAssembly = dstFilePath + "-assembly.txt";
+        std::string cachedGLSL = dstFilePath + "-c-glsl.txt";
+        std::string cachedMSL = dstFilePath + "-c-msl.txt";
 
         flatbuffers::SaveFile(
             dstFilePath.c_str(), (const char*)compiledShader->GetBytePtr(), compiledShader->GetByteCount(), true);
 
+        // clang-format off
         flatbuffers::SaveFile(cachedPreprocessed.c_str(),
                               compiledShader->GetPreprocessedSrc().data(),
                               compiledShader->GetPreprocessedSrc().size(),
@@ -546,6 +564,17 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
                               compiledShader->GetAssemblySrc().data(),
                               compiledShader->GetAssemblySrc().size(),
                               false);
+
+        flatbuffers::SaveFile(cachedGLSL.c_str(),
+                              compiledShader->GetCompiledGLSL().data(),
+                              compiledShader->GetCompiledGLSL().size(),
+                              false);
+
+        flatbuffers::SaveFile(cachedMSL.c_str(),
+                              compiledShader->GetCompiledMSL().data(),
+                              compiledShader->GetCompiledMSL().size(),
+                              false);
+        // clang-format on
 
         apemode::LogInfo("Variant: asset=\"{}\", definitions=\"{}\"", cso.Asset, cso.Definitions);
         return cso;

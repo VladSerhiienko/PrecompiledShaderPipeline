@@ -8,7 +8,7 @@ enum EIR : ubyte {
 	SPIRV = 0,
 }
 
-enum EShader : uint {
+enum EShader : ubyte {
 	Vert,
 	Frag,
 	Comp,
@@ -37,10 +37,83 @@ table CompiledShaderInfo {
 	hash : uint;
 }
 
+enum ReflectedPrimitiveType : ubyte {
+    Struct,
+    Bool,
+    Char,
+    Short,
+    Int,
+    Long,
+    UChar,
+    UShort,
+    UInt,
+    ULong,
+    Half,
+    Float,
+    Double,
+    Image,
+    Sampler,
+    SampledImage,
+}
+
+struct ReflectedStructMember {
+    name_string_index : uint;
+    reflected_type_index : uint;
+    offset : uint;
+}
+
+table ReflectedType {
+    name_string_index : uint;
+    size : uint;
+    array_size : uint;
+    is_array_size_literal : bool;
+    array_stride : uint;
+    vector_size : uint;
+    column_count : uint;
+    matrix_stride : uint;
+    primitive_type : ReflectedPrimitiveType;
+    struct_members : [ReflectedStructMember];
+	hash : uint;
+}
+
+struct ReflectedResource {
+    name_string_index : uint;
+    reflected_type_index : uint;
+    resource_size : uint;
+    descriptor_set : uint;
+    binding : uint;
+	hash : uint;
+}
+
+struct ReflectedSpecializationConstant {
+    name_string_index : uint;
+    constant_id : uint;
+    reflected_type_index : uint;
+    used_as_array_length : bool;
+	hash : uint;
+}
+
+table ReflectedShader {
+    name_string_index : uint;
+    reflected_stage_input_indices : [uint];
+    reflected_stage_output_indices : [uint];
+    reflected_subpass_input_indices : [uint];
+    reflected_uniform_buffer_indices : [uint];
+    reflected_push_constant_buffer_indices : [uint];
+    reflected_image_indices : [uint];
+    reflected_sampler_indices : [uint];
+    reflected_sampled_image_indices : [uint];
+    reflected_specialization_constant_indices : [uint];
+	hash : uint;
+}
+
 struct CompiledShader {
     preprocessed_string_index : uint;
     assembly_string_index : uint;
+    compiled_glsl_string_index : uint;
+    compiled_msl_string_index : uint;
     compiled_buffer_index : uint;
+    reflected_shader_index : uint;
     type : EIR;
 	hash : uint;
 }
@@ -49,6 +122,10 @@ table CompiledShaderCollection {
 	version : EVersion;
     compiled_shader_infos : [CompiledShaderInfo];
     compiled_shaders : [CompiledShader];
+    reflected_shaders : [ReflectedShader];
+    reflected_types : [ReflectedType];
+    reflected_resources : [ReflectedResource];
+    reflected_specialization_constants : [ReflectedSpecializationConstant];
     hashed_strings : [HashedString];
     hashed_buffers : [HashedBuffer];
 }
@@ -78,6 +155,8 @@ cp ./build_appleclang_xcode/shaderc-prefix/src/shaderc-build/third_party/glslang
     --assets-folder "./assets/**" \
     --cso-json-file "./assets/shaders/Viewer.cso.json" \
     --cso-file "./assets/shaders/Viewer.cso"
+
+    --assets-folder "/Users/vserhiienko/Projects/PrecompiledShaderPipeline/assets/**"
 
 ./bin/macOS/flatc -o ./include -c ./schemes/cso.fbs
 ./bin/macOS/flatc -o ./generated -c ./schemes/cso.fbs --gen-mutable
