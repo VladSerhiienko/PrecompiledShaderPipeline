@@ -29,6 +29,8 @@ layout( std140, set = 0, binding = 0 ) uniform CameraUBO {
 // layout( set = 1, binding = 7 ) uniform sampler2D RoughnessMap;
 
 layout( constant_id = 0 ) const int kBoneCount = 72;
+layout( constant_id = 1 ) const double kConstScalar = 1.0;
+// layout( constant_id = 1 ) const mat4 kMatrices[3] = {mat4(1.0), mat4(2.0), mat4(3.0)};
 
 struct SampleStruct {
     float x, y, z, w;
@@ -88,7 +90,7 @@ mat3 AccumulatedBoneNormalTransform( vec4 weights, vec4 indices ) {
 void main( ) {
     vec3 modelPosition = inPosition.xyz * PositionScale.xyz + PositionOffset.xyz;
     vec4 worldPosition = WorldMatrix * AccumulatedBoneOffsetTransform( inBoneWeights, inBoneIndices ) * vec4( modelPosition, 1 );
-    gl_Position        = ProjMatrix * ViewMatrix * worldPosition;
+    gl_Position        = mat4(float(kConstScalar)) * ProjMatrix * ViewMatrix * worldPosition;
 
     outWorldPosition = worldPosition.xyz;
     outViewDirection = normalize( GetCameraWorldPosition( ).xyz - worldPosition.xyz );

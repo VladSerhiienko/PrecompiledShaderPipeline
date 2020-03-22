@@ -120,12 +120,14 @@ void PrintReflection(const ReflectedType& reflectedType,
 }
 void PrintReflection(const ReflectedResource& reflectedResource, const std::string& prefix, bool isLastItem) {
     std::string outputString = prefix;
+    // clang-format off
     outputString += isLastItem ? "└ - " : "├ - ";
     outputString += reflectedResource.name.empty() ? "<unnamed>" : reflectedResource.name;
     outputString += " (set=" + ((reflectedResource.descriptor_set == -1) ? "?" : std::to_string(reflectedResource.descriptor_set));
     outputString += ", binding=" + ((reflectedResource.binding == -1) ? "?" : std::to_string(reflectedResource.binding));
     outputString += ", location=" + ((reflectedResource.location == -1) ? "?" : std::to_string(reflectedResource.location));
     outputString += ")";
+    // clang-format on
 
     apemode::LogInfo("{}", outputString);
     PrintReflection(reflectedResource.reflected_type, prefix + (!isLastItem ? "│   " : "    "), true);
@@ -161,14 +163,19 @@ void PrintReflection(const ReflectedShader& reflectedShader) {
     PrintReflection(reflectedShader.reflected_stage_outputs, "stage outputs");
     PrintReflection(reflectedShader.reflected_uniform_buffers, "uniform buffers");
     PrintReflection(reflectedShader.reflected_push_constant_buffers, "push constants");
-    PrintReflection(reflectedShader.reflected_images, "images");
-    PrintReflection(reflectedShader.reflected_samplers, "samplers");
     PrintReflection(reflectedShader.reflected_sampled_images, "sampled images");
+    PrintReflection(reflectedShader.reflected_subpass_inputs, "subpass inputs");
     PrintReflection(reflectedShader.reflected_storage_images, "storage images");
     PrintReflection(reflectedShader.reflected_storage_buffers, "storage buffers");
-    PrintReflection(reflectedShader.reflected_subpass_inputs, "subpass inputs");
+    PrintReflection(reflectedShader.reflected_images, "images");
+    PrintReflection(reflectedShader.reflected_samplers, "samplers");
 }
 } // namespace
+
+ReflectedType::ReflectedType() = default;
+ReflectedType::ReflectedType(ReflectedType&&) noexcept = default;
+ReflectedType& ReflectedType::operator=(ReflectedType&&) = default;
+ReflectedType::~ReflectedType() = default;
 
 class CompiledShader : public ICompiledShader {
 public:
@@ -177,10 +184,11 @@ public:
     apemode::string8 AssemblySrc = {};
     apemode::string8 CompiledGLSL = {};
     apemode::string8 CompiledMSL = {};
+    apemode::shp::ReflectedShader Reflected = {};
+
     spirv_cross::CompilerGLSL CompilerGLSL;
     spirv_cross::CompilerMSL CompilerMSL;
     spirv_cross::Compiler& Reflection;
-    apemode::shp::ReflectedShader Reflected = {};
 
     CompiledShader(apemode::vector<uint32_t>&& dwords,
                    apemode::string8&& preprocessedSrc,
@@ -206,7 +214,7 @@ public:
     void ReflectMemberType(const spirv_cross::SPIRType& type,
                            ReflectedType& reflectedType,
                            uint32_t member_type_index) {
-        reflectedType.reflected_member_types[member_type_index] = new ReflectedStructMember();
+        reflectedType.reflected_member_types[member_type_index].reset(apemode_new ReflectedStructMember());
         auto& reflectedMemberType = *reflectedType.reflected_member_types[member_type_index];
 
         const spirv_cross::SPIRType& memberType = Reflection.get_type(type.member_types[member_type_index]);
@@ -241,6 +249,7 @@ public:
         reflectedType.element_column_count = std::max<uint32_t>(1, type.columns);
         reflectedType.element_primitive_type = Reflect(type.basetype);
 
+        // clang-format off
         if (reflectedType.element_primitive_type == eReflectedPrimitiveType_Struct) {
             reflectedType.element_byte_size = Reflection.get_declared_struct_size(type);
         } else {
@@ -253,17 +262,16 @@ public:
             reflectedType.is_array_length_static = type.array_size_literal[0];
             if (reflectedType.is_array_length_static) {
                 reflectedType.array_length = type.array[0];
-                assert(reflectedType.array_length == (memberEffectiveSize / reflectedType.element_byte_size) &&
-                       "Caught array size mismatch.");
+                assert(reflectedType.array_length == (memberEffectiveSize / reflectedType.element_byte_size) && "Caught array size mismatch.");
             } else {
                 reflectedType.array_length = memberEffectiveSize / reflectedType.element_byte_size;
             }
         }
+        // clang-format on
 
         reflectedType.element_matrix_byte_stride = reflectedType.element_byte_size / reflectedType.element_column_count;
         reflectedType.array_byte_stride = reflectedType.element_byte_size;
         reflectedType.effective_byte_size = reflectedType.array_length * reflectedType.array_byte_stride;
-        reflectedType.occupied_byte_size = reflectedType.effective_byte_size;
 
         if (reflectedType.element_primitive_type == eReflectedPrimitiveType_Struct) {
             const size_t member_count = type.member_types.size();
@@ -275,9 +283,6 @@ public:
                 const uint32_t thisOffset = reflectedType.reflected_member_types[i]->offset;
                 reflectedType.reflected_member_types[i]->occupied_size = nextOffset - thisOffset;
             }
-
-            reflectedType.occupied_byte_size = reflectedType.reflected_member_types.back()->offset;
-            reflectedType.occupied_byte_size += reflectedType.reflected_member_types.back()->type.effective_byte_size;
         }
 
         if (reflectedType.name.empty()) {
@@ -330,11 +335,17 @@ public:
         const spirv_cross::SPIRConstant& spirConstant = Reflection.get_constant(constant.id);
         const spirv_cross::SPIRType& type = Reflection.get_type(spirConstant.constant_type);
         reflectedConstant.name = Reflection.get_name(constant.id);
+        reflectedConstant.macro = spirConstant.specialization_constant_macro_name;
         reflectedConstant.reflected_type = ReflectType(type);
         reflectedConstant.constant_id = constant.constant_id;
         reflectedConstant.is_specialization = spirConstant.specialization;
         reflectedConstant.is_used_as_array_length = spirConstant.is_used_as_array_length;
         reflectedConstant.is_used_as_lut = spirConstant.is_used_as_lut;
+
+        reflectedConstant.default_value.u64 = 0;
+        const uint64_t defaultScalar = spirConstant.scalar_u64();
+        const size_t effectiveBytes = reflectedConstant.reflected_type.effective_byte_size;
+        memcpy(reflectedConstant.default_value.u8, &defaultScalar, effectiveBytes);
     }
 
     void ReflectConstantVector(const spirv_cross::SmallVector<spirv_cross::SpecializationConstant>& constants,
@@ -370,7 +381,7 @@ public:
     std::string_view GetAssemblySrc() const override { std::string_view sv{AssemblySrc.c_str(), AssemblySrc.size()}; return sv; }
     std::string_view GetCompiledGLSL() const override { std::string_view sv{CompiledGLSL.c_str(), CompiledGLSL.size()}; return sv; }
     std::string_view GetCompiledMSL() const override { std::string_view sv{CompiledMSL.c_str(), CompiledMSL.size()}; return sv; }
-    const ReflectedShader& GetReflection() const override { return Reflected; };
+    ReflectedShader&& GetReflection() override { return std::move(Reflected); };
     // clang-format on
 
     const uint8_t* GetBytePtr() const override { return reinterpret_cast<const uint8_t*>(Dwords.data()); }
@@ -459,11 +470,8 @@ private:
 } // namespace
 
 ShaderCompiler::ShaderCompiler() {}
-
 ShaderCompiler::~ShaderCompiler() {}
-
 ShaderCompiler::IShaderFileReader* ShaderCompiler::GetShaderFileReader() { return pShaderFileReader; }
-
 ShaderCompiler::IShaderFeedbackWriter* ShaderCompiler::GetShaderFeedbackWriter() { return pShaderFeedbackWriter; }
 
 void ShaderCompiler::SetShaderFileReader(IShaderFileReader* pInShaderFileReader) {
@@ -606,14 +614,8 @@ apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     options.SetOptimizationLevel(shaderc_optimization_level(eShaderOptimization));
     options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
 
-    return InternalCompile(shaderName,
-                           shaderContent,
-                           pMacros,
-                           eShaderKind,
-                           options,
-                           true,
-                           /* impl */ &Compiler,
-                           /* impl */ pShaderFeedbackWriter);
+    return InternalCompile(
+        shaderName, shaderContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
 }
 
 apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(

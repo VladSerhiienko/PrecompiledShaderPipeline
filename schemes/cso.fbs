@@ -1,14 +1,21 @@
 namespace cso;
 
-enum EVersion : ubyte {
-    Value = 0
+enum Version : uint {
+    Default = 0,
+    Value = 1,
 }
 
-enum EIR : ubyte {
-	SPIRV = 0,
+enum IR : uint {
+    Default = 0,
+	SPIRV = 1,
 }
 
-enum EShader : ubyte {
+enum DecorationValue : uint {
+    Default = 0,
+	Invalid = 0xffffffff,
+}
+
+enum Shader : uint {
 	Vert,
 	Frag,
 	Comp,
@@ -17,28 +24,25 @@ enum EShader : ubyte {
 	Tese,
 }
 
-table HashedString {
+table UniqueString {
     contents : string;
-    hash : uint;
 }
 
-table HashedBuffer {
+table UniqueBuffer {
     contents : [byte];
-    hash : uint;
 }
 
 table CompiledShaderInfo {
-    type : EShader;
+    type : Shader;
     compiled_shader_index : uint;
     asset_string_index : uint;
     definitions_string_index : uint;
     definitions_string_indices : [uint];
     included_files_string_indices : [uint];
-	hash : uint;
 }
 
-enum ReflectedPrimitiveType : ubyte {
-    Struct,
+enum ReflectedPrimitiveType : uint {
+    Struct = 0,
     Bool,
     Char,
     Short,
@@ -57,54 +61,57 @@ enum ReflectedPrimitiveType : ubyte {
 }
 
 struct ReflectedStructMember {
-    name_string_index : uint;
-    reflected_type_index : uint;
-    offset : uint;
+    name_index : uint;
+    type_index : uint;
+    byte_offset : uint;
+    effective_byte_size : uint;
+    occupied_byte_size : uint;
 }
 
 table ReflectedType {
-    name_string_index : uint;
-    size : uint;
-    array_size : uint;
-    is_array_size_literal : bool;
-    array_stride : uint;
-    vector_size : uint;
-    column_count : uint;
-    matrix_stride : uint;
-    primitive_type : ReflectedPrimitiveType;
-    struct_members : [ReflectedStructMember];
-	hash : uint;
+    name_index : uint;
+    element_primitive_type : ReflectedPrimitiveType;
+    element_byte_size : uint;
+    element_vector_length : uint;
+    element_column_count : uint;
+    element_matrix_stride : uint;
+    array_length : uint;
+    is_array_size_static : bool;
+    array_byte_stride : uint;
+    effective_byte_size : uint;
+    member_types : [ReflectedStructMember];
 }
 
 struct ReflectedResource {
-    name_string_index : uint;
-    reflected_type_index : uint;
-    resource_size : uint;
+    name_index : uint;
+    type_index : uint;
     descriptor_set : uint;
     binding : uint;
-	hash : uint;
+    location : uint;
 }
 
-struct ReflectedSpecializationConstant {
-    name_string_index : uint;
+struct ReflectedConstant {
+    name_index : uint;
+    macro_name_index : uint;
+    default_scalar_u64 : ulong;
     constant_id : uint;
-    reflected_type_index : uint;
-    used_as_array_length : bool;
-	hash : uint;
+    type_index : uint;
+    is_specialization : bool;
+    is_used_as_array_length : bool;
+    is_used_as_lut : bool;
 }
 
 table ReflectedShader {
-    name_string_index : uint;
-    reflected_stage_input_indices : [uint];
-    reflected_stage_output_indices : [uint];
-    reflected_subpass_input_indices : [uint];
-    reflected_uniform_buffer_indices : [uint];
-    reflected_push_constant_buffer_indices : [uint];
-    reflected_image_indices : [uint];
-    reflected_sampler_indices : [uint];
-    reflected_sampled_image_indices : [uint];
-    reflected_specialization_constant_indices : [uint];
-	hash : uint;
+    name_index : uint;
+    constant_indices : [uint];
+    stage_input_indices : [uint];
+    stage_output_indices : [uint];
+    uniform_buffer_indices : [uint];
+    push_constant_buffer_indices : [uint];
+    sampled_image_indices : [uint];
+    subpass_input_indices : [uint];
+    image_indices : [uint];
+    sampler_indices : [uint];
 }
 
 struct CompiledShader {
@@ -114,20 +121,19 @@ struct CompiledShader {
     compiled_msl_string_index : uint;
     compiled_buffer_index : uint;
     reflected_shader_index : uint;
-    type : EIR;
-	hash : uint;
+    type : IR;
 }
 
 table CompiledShaderCollection {
-	version : EVersion;
+	version : Version;
     compiled_shader_infos : [CompiledShaderInfo];
     compiled_shaders : [CompiledShader];
     reflected_shaders : [ReflectedShader];
     reflected_types : [ReflectedType];
     reflected_resources : [ReflectedResource];
-    reflected_specialization_constants : [ReflectedSpecializationConstant];
-    hashed_strings : [HashedString];
-    hashed_buffers : [HashedBuffer];
+    reflected_constants : [ReflectedConstant];
+    strings : [UniqueString];
+    buffers : [UniqueBuffer];
 }
 
 root_type CompiledShaderCollection;

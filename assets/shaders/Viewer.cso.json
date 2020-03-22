@@ -1,5 +1,11 @@
 {
     "commands": [
+
+        {
+            "srcFile": "shaders/SceneSkinnedTest.vert",
+            "shaderType": "vert"
+        },
+        
         {
             "srcFile": "shaders/Skybox.frag",
             "shaderType": "frag"
@@ -29,11 +35,6 @@
 
         {
             "srcFile": "shaders/SceneSkinned.vert",
-            "shaderType": "vert"
-        },
-
-        {
-            "srcFile": "shaders/SceneSkinnedTest.vert",
             "shaderType": "vert"
         },
 

@@ -37,6 +37,11 @@ enum ReflectedPrimitiveType {
 
 struct ReflectedStructMember;
 struct ReflectedType {
+    ReflectedType();
+    ReflectedType(ReflectedType&&) noexcept;
+    ReflectedType& operator=(ReflectedType&&);
+    ~ReflectedType();
+
     std::string name;
     ReflectedPrimitiveType element_primitive_type;
     uint32_t element_byte_size;
@@ -47,9 +52,7 @@ struct ReflectedType {
     bool is_array_length_static;
     uint32_t array_byte_stride;
     uint32_t effective_byte_size;
-    uint32_t occupied_byte_size;
-    std::vector<ReflectedStructMember*> reflected_member_types;
-    uint32_t hash;
+    apemode::vector<apemode::unique_ptr<ReflectedStructMember>> reflected_member_types;
 };
 
 struct ReflectedStructMember {
@@ -61,38 +64,62 @@ struct ReflectedStructMember {
 };
 
 struct ReflectedResource {
+    ReflectedResource() = default;
+    ReflectedResource(ReflectedResource&&) noexcept = default;
+    ReflectedResource& operator=(ReflectedResource&&) = default;
+    ~ReflectedResource() = default;
+
     std::string name;
     ReflectedType reflected_type;
     uint32_t descriptor_set;
     uint32_t binding;
     uint32_t location;
-    uint32_t hash;
 };
 
+struct ReflectedConstantDefaultValue {
+    union {
+        uint8_t u8[8];
+        uint64_t u64;
+        double d;
+    };
+};
+
+static_assert(sizeof(ReflectedConstantDefaultValue) == 8, "Caught size mismatch.");
+
 struct ReflectedConstant {
+    ReflectedConstant() = default;
+    ReflectedConstant(ReflectedConstant&&) noexcept = default;
+    ReflectedConstant& operator=(ReflectedConstant&&) = default;
+    ~ReflectedConstant() = default;
+
     std::string name;
+    std::string macro;
+    ReflectedConstantDefaultValue default_value = {};
     uint32_t constant_id;
     ReflectedType reflected_type;
     bool is_used_as_lut;
     bool is_used_as_array_length;
     bool is_specialization;
-    uint32_t hash;
 };
 
 struct ReflectedShader {
+    ReflectedShader() = default;
+    ReflectedShader(ReflectedShader&&) noexcept = default;
+    ReflectedShader& operator=(ReflectedShader&&) = default;
+    ~ReflectedShader() = default;
+
     std::string name;
+    std::vector<ReflectedConstant> reflected_constants;
     std::vector<ReflectedResource> reflected_stage_inputs;
     std::vector<ReflectedResource> reflected_stage_outputs;
-    std::vector<ReflectedResource> reflected_subpass_inputs;
     std::vector<ReflectedResource> reflected_uniform_buffers;
     std::vector<ReflectedResource> reflected_push_constant_buffers;
-    std::vector<ReflectedResource> reflected_images;
-    std::vector<ReflectedResource> reflected_samplers;
     std::vector<ReflectedResource> reflected_sampled_images;
+    std::vector<ReflectedResource> reflected_subpass_inputs;
     std::vector<ReflectedResource> reflected_storage_images;
     std::vector<ReflectedResource> reflected_storage_buffers;
-    std::vector<ReflectedConstant> reflected_constants;
-    uint32_t hash;
+    std::vector<ReflectedResource> reflected_images;
+    std::vector<ReflectedResource> reflected_samplers;
 };
 
 class ICompiledShader {
@@ -100,12 +127,12 @@ public:
     virtual ~ICompiledShader() = default;
 
     virtual const uint8_t* GetBytePtr() const = 0;
+    virtual size_t GetByteCount() const = 0;
     virtual std::string_view GetPreprocessedSrc() const = 0;
     virtual std::string_view GetAssemblySrc() const = 0;
     virtual std::string_view GetCompiledGLSL() const = 0;
     virtual std::string_view GetCompiledMSL() const = 0;
-    virtual size_t GetByteCount() const = 0;
-    virtual const ReflectedShader& GetReflection() const = 0;
+    virtual ReflectedShader&& GetReflection() = 0;
 
     // clang-format off
     inline const uint32_t* GetDwordPtr() const { return reinterpret_cast<const uint32_t*>(GetBytePtr()); }
