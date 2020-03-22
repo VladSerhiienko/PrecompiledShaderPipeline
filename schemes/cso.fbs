@@ -15,13 +15,35 @@ enum DecorationValue : uint {
 	Invalid = 0xffffffff,
 }
 
+enum ArrayLength : uint {
+    Undefined = 0,
+    Default = 1,
+	ValueBits = 0x7fffffff,
+	IsStaticBit = 0x80000000,
+}
+
+enum ReflectedConstantBit : uint {
+    None = 0,
+    IsSpecializationBit = 1,
+    IsUsedAsArrayLengthBit = 2,
+    IsUsedAsLUT = 4,
+}
+
 enum Shader : uint {
-	Vert,
-	Frag,
-	Comp,
-	Geom,
-	Tesc,
-	Tese,
+	Vertex,
+	Fragment,
+	Compute,
+	Geometry,
+	TessControl,
+	TessEvaluation,
+    RayGeneration,
+    AnyHit,
+    ClosestHit,
+    Miss,
+    Intersection,
+    Callable,
+    Task,
+    Mesh,
 }
 
 table UniqueString {
@@ -58,6 +80,9 @@ enum ReflectedPrimitiveType : uint {
     Image,
     Sampler,
     SampledImage,
+    AtomicCounter,
+    AccelerationStructure,
+    ControlPointerArray,
 }
 
 struct ReflectedStructMember {
@@ -75,8 +100,7 @@ table ReflectedType {
     element_vector_length : uint;
     element_column_count : uint;
     element_matrix_stride : uint;
-    array_length : uint;
-    is_array_size_static : bool;
+    array_length_with_bits : uint;
     array_byte_stride : uint;
     effective_byte_size : uint;
     member_types : [ReflectedStructMember];
@@ -96,9 +120,7 @@ struct ReflectedConstant {
     default_scalar_u64 : ulong;
     constant_id : uint;
     type_index : uint;
-    is_specialization : bool;
-    is_used_as_array_length : bool;
-    is_used_as_lut : bool;
+    bits : uint;
 }
 
 table ReflectedShader {

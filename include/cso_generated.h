@@ -111,44 +111,134 @@ inline const char *EnumNameDecorationValue(DecorationValue e) {
   }
 }
 
-enum Shader {
-  Shader_Vert = 0,
-  Shader_Frag = 1,
-  Shader_Comp = 2,
-  Shader_Geom = 3,
-  Shader_Tesc = 4,
-  Shader_Tese = 5,
-  Shader_MIN = Shader_Vert,
-  Shader_MAX = Shader_Tese
+enum ArrayLength {
+  ArrayLength_Undefined = 0,
+  ArrayLength_Default = 1,
+  ArrayLength_ValueBits = 2147483647,
+  ArrayLength_IsStaticBit = 2147483648,
+  ArrayLength_MIN = ArrayLength_Undefined,
+  ArrayLength_MAX = ArrayLength_IsStaticBit
 };
 
-inline const Shader (&EnumValuesShader())[6] {
+inline const ArrayLength (&EnumValuesArrayLength())[4] {
+  static const ArrayLength values[] = {
+    ArrayLength_Undefined,
+    ArrayLength_Default,
+    ArrayLength_ValueBits,
+    ArrayLength_IsStaticBit
+  };
+  return values;
+}
+
+inline const char *EnumNameArrayLength(ArrayLength e) {
+  switch (e) {
+    case ArrayLength_Undefined: return "Undefined";
+    case ArrayLength_Default: return "Default";
+    case ArrayLength_ValueBits: return "ValueBits";
+    case ArrayLength_IsStaticBit: return "IsStaticBit";
+    default: return "";
+  }
+}
+
+enum ReflectedConstantBit {
+  ReflectedConstantBit_None = 0,
+  ReflectedConstantBit_IsSpecializationBit = 1,
+  ReflectedConstantBit_IsUsedAsArrayLengthBit = 2,
+  ReflectedConstantBit_IsUsedAsLUT = 4,
+  ReflectedConstantBit_MIN = ReflectedConstantBit_None,
+  ReflectedConstantBit_MAX = ReflectedConstantBit_IsUsedAsLUT
+};
+
+inline const ReflectedConstantBit (&EnumValuesReflectedConstantBit())[4] {
+  static const ReflectedConstantBit values[] = {
+    ReflectedConstantBit_None,
+    ReflectedConstantBit_IsSpecializationBit,
+    ReflectedConstantBit_IsUsedAsArrayLengthBit,
+    ReflectedConstantBit_IsUsedAsLUT
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesReflectedConstantBit() {
+  static const char * const names[] = {
+    "None",
+    "IsSpecializationBit",
+    "IsUsedAsArrayLengthBit",
+    "",
+    "IsUsedAsLUT",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameReflectedConstantBit(ReflectedConstantBit e) {
+  if (e < ReflectedConstantBit_None || e > ReflectedConstantBit_IsUsedAsLUT) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesReflectedConstantBit()[index];
+}
+
+enum Shader {
+  Shader_Vertex = 0,
+  Shader_Fragment = 1,
+  Shader_Compute = 2,
+  Shader_Geometry = 3,
+  Shader_TessControl = 4,
+  Shader_TessEvaluation = 5,
+  Shader_RayGeneration = 6,
+  Shader_AnyHit = 7,
+  Shader_ClosestHit = 8,
+  Shader_Miss = 9,
+  Shader_Intersection = 10,
+  Shader_Callable = 11,
+  Shader_Task = 12,
+  Shader_Mesh = 13,
+  Shader_MIN = Shader_Vertex,
+  Shader_MAX = Shader_Mesh
+};
+
+inline const Shader (&EnumValuesShader())[14] {
   static const Shader values[] = {
-    Shader_Vert,
-    Shader_Frag,
-    Shader_Comp,
-    Shader_Geom,
-    Shader_Tesc,
-    Shader_Tese
+    Shader_Vertex,
+    Shader_Fragment,
+    Shader_Compute,
+    Shader_Geometry,
+    Shader_TessControl,
+    Shader_TessEvaluation,
+    Shader_RayGeneration,
+    Shader_AnyHit,
+    Shader_ClosestHit,
+    Shader_Miss,
+    Shader_Intersection,
+    Shader_Callable,
+    Shader_Task,
+    Shader_Mesh
   };
   return values;
 }
 
 inline const char * const *EnumNamesShader() {
   static const char * const names[] = {
-    "Vert",
-    "Frag",
-    "Comp",
-    "Geom",
-    "Tesc",
-    "Tese",
+    "Vertex",
+    "Fragment",
+    "Compute",
+    "Geometry",
+    "TessControl",
+    "TessEvaluation",
+    "RayGeneration",
+    "AnyHit",
+    "ClosestHit",
+    "Miss",
+    "Intersection",
+    "Callable",
+    "Task",
+    "Mesh",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameShader(Shader e) {
-  if (e < Shader_Vert || e > Shader_Tese) return "";
+  if (e < Shader_Vertex || e > Shader_Mesh) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesShader()[index];
 }
@@ -170,11 +260,14 @@ enum ReflectedPrimitiveType {
   ReflectedPrimitiveType_Image = 13,
   ReflectedPrimitiveType_Sampler = 14,
   ReflectedPrimitiveType_SampledImage = 15,
+  ReflectedPrimitiveType_AtomicCounter = 16,
+  ReflectedPrimitiveType_AccelerationStructure = 17,
+  ReflectedPrimitiveType_ControlPointerArray = 18,
   ReflectedPrimitiveType_MIN = ReflectedPrimitiveType_Struct,
-  ReflectedPrimitiveType_MAX = ReflectedPrimitiveType_SampledImage
+  ReflectedPrimitiveType_MAX = ReflectedPrimitiveType_ControlPointerArray
 };
 
-inline const ReflectedPrimitiveType (&EnumValuesReflectedPrimitiveType())[16] {
+inline const ReflectedPrimitiveType (&EnumValuesReflectedPrimitiveType())[19] {
   static const ReflectedPrimitiveType values[] = {
     ReflectedPrimitiveType_Struct,
     ReflectedPrimitiveType_Bool,
@@ -191,7 +284,10 @@ inline const ReflectedPrimitiveType (&EnumValuesReflectedPrimitiveType())[16] {
     ReflectedPrimitiveType_Double,
     ReflectedPrimitiveType_Image,
     ReflectedPrimitiveType_Sampler,
-    ReflectedPrimitiveType_SampledImage
+    ReflectedPrimitiveType_SampledImage,
+    ReflectedPrimitiveType_AtomicCounter,
+    ReflectedPrimitiveType_AccelerationStructure,
+    ReflectedPrimitiveType_ControlPointerArray
   };
   return values;
 }
@@ -214,13 +310,16 @@ inline const char * const *EnumNamesReflectedPrimitiveType() {
     "Image",
     "Sampler",
     "SampledImage",
+    "AtomicCounter",
+    "AccelerationStructure",
+    "ControlPointerArray",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameReflectedPrimitiveType(ReflectedPrimitiveType e) {
-  if (e < ReflectedPrimitiveType_Struct || e > ReflectedPrimitiveType_SampledImage) return "";
+  if (e < ReflectedPrimitiveType_Struct || e > ReflectedPrimitiveType_ControlPointerArray) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesReflectedPrimitiveType()[index];
 }
@@ -306,27 +405,22 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) ReflectedConstant FLATBUFFERS_FINAL_CLASS
   uint64_t default_scalar_u64_;
   uint32_t constant_id_;
   uint32_t type_index_;
-  uint8_t is_specialization_;
-  uint8_t is_used_as_array_length_;
-  uint8_t is_used_as_lut_;
-  int8_t padding0__;  int32_t padding1__;
+  uint32_t bits_;
+  int32_t padding0__;
 
  public:
   ReflectedConstant() {
     memset(static_cast<void *>(this), 0, sizeof(ReflectedConstant));
   }
-  ReflectedConstant(uint32_t _name_index, uint32_t _macro_name_index, uint64_t _default_scalar_u64, uint32_t _constant_id, uint32_t _type_index, bool _is_specialization, bool _is_used_as_array_length, bool _is_used_as_lut)
+  ReflectedConstant(uint32_t _name_index, uint32_t _macro_name_index, uint64_t _default_scalar_u64, uint32_t _constant_id, uint32_t _type_index, uint32_t _bits)
       : name_index_(flatbuffers::EndianScalar(_name_index)),
         macro_name_index_(flatbuffers::EndianScalar(_macro_name_index)),
         default_scalar_u64_(flatbuffers::EndianScalar(_default_scalar_u64)),
         constant_id_(flatbuffers::EndianScalar(_constant_id)),
         type_index_(flatbuffers::EndianScalar(_type_index)),
-        is_specialization_(flatbuffers::EndianScalar(static_cast<uint8_t>(_is_specialization))),
-        is_used_as_array_length_(flatbuffers::EndianScalar(static_cast<uint8_t>(_is_used_as_array_length))),
-        is_used_as_lut_(flatbuffers::EndianScalar(static_cast<uint8_t>(_is_used_as_lut))),
-        padding0__(0),
-        padding1__(0) {
-    (void)padding0__;    (void)padding1__;
+        bits_(flatbuffers::EndianScalar(_bits)),
+        padding0__(0) {
+    (void)padding0__;
   }
   uint32_t name_index() const {
     return flatbuffers::EndianScalar(name_index_);
@@ -343,14 +437,8 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) ReflectedConstant FLATBUFFERS_FINAL_CLASS
   uint32_t type_index() const {
     return flatbuffers::EndianScalar(type_index_);
   }
-  bool is_specialization() const {
-    return flatbuffers::EndianScalar(is_specialization_) != 0;
-  }
-  bool is_used_as_array_length() const {
-    return flatbuffers::EndianScalar(is_used_as_array_length_) != 0;
-  }
-  bool is_used_as_lut() const {
-    return flatbuffers::EndianScalar(is_used_as_lut_) != 0;
+  uint32_t bits() const {
+    return flatbuffers::EndianScalar(bits_);
   }
 };
 FLATBUFFERS_STRUCT_END(ReflectedConstant, 32);
@@ -578,7 +666,7 @@ struct CompiledShaderInfoBuilder {
 
 inline flatbuffers::Offset<CompiledShaderInfo> CreateCompiledShaderInfo(
     flatbuffers::FlatBufferBuilder &_fbb,
-    Shader type = Shader_Vert,
+    Shader type = Shader_Vertex,
     uint32_t compiled_shader_index = 0,
     uint32_t asset_string_index = 0,
     uint32_t definitions_string_index = 0,
@@ -596,7 +684,7 @@ inline flatbuffers::Offset<CompiledShaderInfo> CreateCompiledShaderInfo(
 
 inline flatbuffers::Offset<CompiledShaderInfo> CreateCompiledShaderInfoDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    Shader type = Shader_Vert,
+    Shader type = Shader_Vertex,
     uint32_t compiled_shader_index = 0,
     uint32_t asset_string_index = 0,
     uint32_t definitions_string_index = 0,
@@ -622,11 +710,10 @@ struct ReflectedType FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_ELEMENT_VECTOR_LENGTH = 10,
     VT_ELEMENT_COLUMN_COUNT = 12,
     VT_ELEMENT_MATRIX_STRIDE = 14,
-    VT_ARRAY_LENGTH = 16,
-    VT_IS_ARRAY_SIZE_STATIC = 18,
-    VT_ARRAY_BYTE_STRIDE = 20,
-    VT_EFFECTIVE_BYTE_SIZE = 22,
-    VT_MEMBER_TYPES = 24
+    VT_ARRAY_LENGTH_WITH_BITS = 16,
+    VT_ARRAY_BYTE_STRIDE = 18,
+    VT_EFFECTIVE_BYTE_SIZE = 20,
+    VT_MEMBER_TYPES = 22
   };
   uint32_t name_index() const {
     return GetField<uint32_t>(VT_NAME_INDEX, 0);
@@ -646,11 +733,8 @@ struct ReflectedType FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t element_matrix_stride() const {
     return GetField<uint32_t>(VT_ELEMENT_MATRIX_STRIDE, 0);
   }
-  uint32_t array_length() const {
-    return GetField<uint32_t>(VT_ARRAY_LENGTH, 0);
-  }
-  bool is_array_size_static() const {
-    return GetField<uint8_t>(VT_IS_ARRAY_SIZE_STATIC, 0) != 0;
+  uint32_t array_length_with_bits() const {
+    return GetField<uint32_t>(VT_ARRAY_LENGTH_WITH_BITS, 0);
   }
   uint32_t array_byte_stride() const {
     return GetField<uint32_t>(VT_ARRAY_BYTE_STRIDE, 0);
@@ -669,8 +753,7 @@ struct ReflectedType FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_ELEMENT_VECTOR_LENGTH) &&
            VerifyField<uint32_t>(verifier, VT_ELEMENT_COLUMN_COUNT) &&
            VerifyField<uint32_t>(verifier, VT_ELEMENT_MATRIX_STRIDE) &&
-           VerifyField<uint32_t>(verifier, VT_ARRAY_LENGTH) &&
-           VerifyField<uint8_t>(verifier, VT_IS_ARRAY_SIZE_STATIC) &&
+           VerifyField<uint32_t>(verifier, VT_ARRAY_LENGTH_WITH_BITS) &&
            VerifyField<uint32_t>(verifier, VT_ARRAY_BYTE_STRIDE) &&
            VerifyField<uint32_t>(verifier, VT_EFFECTIVE_BYTE_SIZE) &&
            VerifyOffset(verifier, VT_MEMBER_TYPES) &&
@@ -700,11 +783,8 @@ struct ReflectedTypeBuilder {
   void add_element_matrix_stride(uint32_t element_matrix_stride) {
     fbb_.AddElement<uint32_t>(ReflectedType::VT_ELEMENT_MATRIX_STRIDE, element_matrix_stride, 0);
   }
-  void add_array_length(uint32_t array_length) {
-    fbb_.AddElement<uint32_t>(ReflectedType::VT_ARRAY_LENGTH, array_length, 0);
-  }
-  void add_is_array_size_static(bool is_array_size_static) {
-    fbb_.AddElement<uint8_t>(ReflectedType::VT_IS_ARRAY_SIZE_STATIC, static_cast<uint8_t>(is_array_size_static), 0);
+  void add_array_length_with_bits(uint32_t array_length_with_bits) {
+    fbb_.AddElement<uint32_t>(ReflectedType::VT_ARRAY_LENGTH_WITH_BITS, array_length_with_bits, 0);
   }
   void add_array_byte_stride(uint32_t array_byte_stride) {
     fbb_.AddElement<uint32_t>(ReflectedType::VT_ARRAY_BYTE_STRIDE, array_byte_stride, 0);
@@ -735,8 +815,7 @@ inline flatbuffers::Offset<ReflectedType> CreateReflectedType(
     uint32_t element_vector_length = 0,
     uint32_t element_column_count = 0,
     uint32_t element_matrix_stride = 0,
-    uint32_t array_length = 0,
-    bool is_array_size_static = false,
+    uint32_t array_length_with_bits = 0,
     uint32_t array_byte_stride = 0,
     uint32_t effective_byte_size = 0,
     flatbuffers::Offset<flatbuffers::Vector<const ReflectedStructMember *>> member_types = 0) {
@@ -744,14 +823,13 @@ inline flatbuffers::Offset<ReflectedType> CreateReflectedType(
   builder_.add_member_types(member_types);
   builder_.add_effective_byte_size(effective_byte_size);
   builder_.add_array_byte_stride(array_byte_stride);
-  builder_.add_array_length(array_length);
+  builder_.add_array_length_with_bits(array_length_with_bits);
   builder_.add_element_matrix_stride(element_matrix_stride);
   builder_.add_element_column_count(element_column_count);
   builder_.add_element_vector_length(element_vector_length);
   builder_.add_element_byte_size(element_byte_size);
   builder_.add_element_primitive_type(element_primitive_type);
   builder_.add_name_index(name_index);
-  builder_.add_is_array_size_static(is_array_size_static);
   return builder_.Finish();
 }
 
@@ -763,8 +841,7 @@ inline flatbuffers::Offset<ReflectedType> CreateReflectedTypeDirect(
     uint32_t element_vector_length = 0,
     uint32_t element_column_count = 0,
     uint32_t element_matrix_stride = 0,
-    uint32_t array_length = 0,
-    bool is_array_size_static = false,
+    uint32_t array_length_with_bits = 0,
     uint32_t array_byte_stride = 0,
     uint32_t effective_byte_size = 0,
     const std::vector<ReflectedStructMember> *member_types = nullptr) {
@@ -777,8 +854,7 @@ inline flatbuffers::Offset<ReflectedType> CreateReflectedTypeDirect(
       element_vector_length,
       element_column_count,
       element_matrix_stride,
-      array_length,
-      is_array_size_static,
+      array_length_with_bits,
       array_byte_stride,
       effective_byte_size,
       member_types__);

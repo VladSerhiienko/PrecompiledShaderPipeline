@@ -13,20 +13,17 @@
 using json = nlohmann::json;
 
 namespace {
-class UniqueString {
-public:
+struct UniqueString {
+    uint64_t Hash = 0;
     std::string Contents = "";
-    uint64_t Hash = 0;
 };
 
-class UniqueBuffer {
-public:
+struct UniqueBuffer {
+    uint64_t Hash = 0;
     std::vector<uint8_t> Contents = {};
-    uint64_t Hash = 0;
 };
 
-class CompiledShaderVariant {
-public:
+struct CompiledShaderVariant {
     CompiledShaderVariant() = default;
     CompiledShaderVariant(CompiledShaderVariant&&) noexcept = default;
     CompiledShaderVariant& operator=(CompiledShaderVariant&&) = default;
@@ -45,26 +42,24 @@ public:
     std::map<std::string, std::string> DefinitionMap = {};
 };
 
-class HashedCompiledShader {
-public:
+struct HashedCompiledShader {
+    uint64_t Hash = 0;
     uint32_t PreprocessedIndex = 0;
     uint32_t AssemblyIndex = 0;
     uint32_t CompiledIndex = 0;
     uint32_t GLSLIndex = 0;
     uint32_t MSLIndex = 0;
     uint32_t ReflectedIndex = 0;
-    uint64_t Hash = 0;
 };
 
-class HashedCompiledShaderInfo {
-public:
+struct HashedCompiledShaderInfo {
+    uint64_t Hash = 0;
     uint32_t AssetIndex = 0;
     uint32_t CompiledShaderIndex = 0;
     uint32_t DefinitionsIndex = 0;
-    cso::Shader Type = cso::Shader::Shader_MAX;
+    cso::Shader ShaderType = cso::Shader::Shader_MAX;
     std::vector<uint32_t> IncludedFileIndices;
     std::vector<uint32_t> DefinitionIndices;
-    uint64_t Hash = 0;
 };
 
 struct HashedReflectedTypeMember {
@@ -76,6 +71,7 @@ struct HashedReflectedTypeMember {
 };
 
 struct HashedReflectedType {
+    uint64_t Hash = 0;
     uint32_t NameIndex = 0;
     cso::ReflectedPrimitiveType ElementPrimitiveType = cso::ReflectedPrimitiveType::ReflectedPrimitiveType_MAX;
     uint32_t ElementByteSize = 0;
@@ -87,19 +83,19 @@ struct HashedReflectedType {
     uint32_t ArrayByteStride = 0;
     uint32_t EffectiveByteSize = 0;
     std::vector<HashedReflectedTypeMember> MemberTypes = {};
-    uint64_t Hash = 0;
 };
 
 struct HashedReflectedResource {
+    uint64_t Hash = 0;
     uint32_t NameIndex = 0;
     uint32_t TypeIndex = 0;
     uint32_t DescriptorSet = 0;
     uint32_t DescriptorBinding = 0;
     uint32_t Locaton = 0;
-    uint64_t Hash = 0;
 };
 
 struct HashedReflectedConstant {
+    uint64_t Hash = 0;
     uint32_t NameIndex = 0;
     uint32_t MacroIndex = 0;
     uint64_t DefaultScalarU64 = 0;
@@ -108,10 +104,10 @@ struct HashedReflectedConstant {
     bool bIsSpecialization = false;
     bool bIsUsedAsArrayLength = false;
     bool bIsUsedAsLUT = false;
-    uint64_t Hash = 0;
 };
 
 struct HashedReflectedShader {
+    uint64_t Hash = 0;
     uint32_t NameIndex = 0;
     std::vector<uint32_t> ConstantIndices = {};
     std::vector<uint32_t> StageInputIndices = {};
@@ -122,19 +118,17 @@ struct HashedReflectedShader {
     std::vector<uint32_t> SubpassImageIndices = {};
     std::vector<uint32_t> SeparateImageIndices = {};
     std::vector<uint32_t> SeparateSamplerIndices = {};
-    uint64_t Hash = 0;
 };
 
-class CompiledShaderCollection {
-public:
+struct CompiledShaderCollection {
+    std::vector<UniqueString> uniqueStrings = {};
+    std::vector<UniqueBuffer> uniqueBuffers = {};
     std::vector<HashedCompiledShader> uniqueCompiledShaders = {};
     std::vector<HashedCompiledShaderInfo> uniqueCompiledShaderInfos = {};
     std::vector<HashedReflectedType> uniqueReflectedTypes = {};
     std::vector<HashedReflectedResource> uniqueReflectedResources = {};
     std::vector<HashedReflectedConstant> uniqueReflectedConstants = {};
     std::vector<HashedReflectedShader> uniqueReflectedShaders = {};
-    std::vector<UniqueString> uniqueStrings = {};
-    std::vector<UniqueBuffer> uniqueBuffers = {};
 
     void Serialize(flatbuffers::FlatBufferBuilder& fbb, const std::vector<CompiledShaderVariant>& variants) {
         Pack(variants);
@@ -157,7 +151,6 @@ public:
             flatbuffers::Offset<flatbuffers::Vector<int8_t>> contentsOffset = 0;
             contentsOffset = fbb.CreateVector(contentsPtr, contentsLen);
             hashedBufferOffsets.push_back(cso::CreateUniqueBuffer(fbb, contentsOffset));
-            apemode::LogInfo("+ Buffer -> {}", contentsLen);
         }
 
         hashedBuffersOffset = fbb.CreateVector(hashedBufferOffsets.data(), hashedBufferOffsets.size());
@@ -169,7 +162,6 @@ public:
             flatbuffers::Offset<flatbuffers::String> contentsOffset = 0;
             contentsOffset = fbb.CreateString(contentsPtr, contentsLen);
             hashedStringOffsets.push_back(cso::CreateUniqueString(fbb, contentsOffset));
-            apemode::LogInfo("+ String -> {}", contentsLen);
         }
 
         hashedStringsOffset = fbb.CreateVector(hashedStringOffsets.data(), hashedStringOffsets.size());
@@ -185,6 +177,9 @@ public:
             flatbuffers::Offset<flatbuffers::Vector<const cso::ReflectedStructMember*>> reflectedStructMembersOffset = 0;
             reflectedStructMembersOffset = fbb.CreateVectorOfStructs(reflectedStructMembers.data(), reflectedStructMembers.size());
 
+            uint32_t arrayLength = reflectedType.ArrayLength & cso::ArrayLength_ValueBits;
+            arrayLength |= reflectedType.bIsArrayLengthStatic ? cso::ArrayLength_IsStaticBit : 0;
+
             reflectedTypeOffsets.push_back(cso::CreateReflectedType(fbb,
                                                                     reflectedType.NameIndex,
                                                                     reflectedType.ElementPrimitiveType,
@@ -192,36 +187,36 @@ public:
                                                                     reflectedType.ElementVectorLength,
                                                                     reflectedType.ElementColumnCount,
                                                                     reflectedType.ElementMatrixByteStride,
-                                                                    reflectedType.ArrayLength,
-                                                                    reflectedType.bIsArrayLengthStatic,
+                                                                    arrayLength,
                                                                     reflectedType.ArrayByteStride,
                                                                     reflectedType.EffectiveByteSize,
                                                                     reflectedStructMembersOffset));
-
-            apemode::LogInfo("+ Reflected Type");
         }
 
         std::vector<cso::ReflectedResource> reflectedResources = {};
         for (auto& r : this->uniqueReflectedResources) {
             reflectedResources.push_back(cso::ReflectedResource(r.NameIndex, r.TypeIndex, r.DescriptorSet, r.DescriptorBinding, r.Locaton));
-            apemode::LogInfo("+ Reflected Resource");
         }
         // clang-format on
 
+        reflectedResourcesOffset = fbb.CreateVectorOfStructs(reflectedResources.data(), reflectedResources.size());
+
         std::vector<cso::ReflectedConstant> reflectedConstants = {};
         for (auto& c : uniqueReflectedConstants) {
+            uint32_t bits = 0;
+
+            if (c.bIsSpecialization) { bits |= cso::ReflectedConstantBit_IsSpecializationBit; }
+            if (c.bIsUsedAsArrayLength) { bits |= cso::ReflectedConstantBit_IsUsedAsArrayLengthBit; }
+            if (c.bIsUsedAsLUT) { bits |= cso::ReflectedConstantBit_IsUsedAsLUT; }
+            
             reflectedConstants.push_back(cso::ReflectedConstant(c.NameIndex,
                                                                 c.MacroIndex,
                                                                 c.DefaultScalarU64,
                                                                 c.ConstantId,
                                                                 c.TypeIndex,
-                                                                c.bIsSpecialization,
-                                                                c.bIsUsedAsArrayLength,
-                                                                c.bIsUsedAsLUT));
-            apemode::LogInfo("+ Reflected Constant");
+                                                                bits));
         }
 
-        reflectedResourcesOffset = fbb.CreateVectorOfStructs(reflectedResources.data(), reflectedResources.size());
         reflectedConstantsOffset = fbb.CreateVectorOfStructs(reflectedConstants.data(), reflectedConstants.size());
 
         std::vector<flatbuffers::Offset<cso::ReflectedShader>> reflectedShaderOffsets = {};
@@ -247,8 +242,6 @@ public:
                                                                         subpassInputIndicesOffset,
                                                                         separateImageIndicesOffset,
                                                                         separateSamplerIndicesOffset));
-
-            apemode::LogInfo("+ Reflected Shader");
         }
 
         reflectedShadersOffset = fbb.CreateVector(reflectedShaderOffsets);
@@ -262,7 +255,6 @@ public:
                                                                 compiledShader.MSLIndex,
                                                                 compiledShader.ReflectedIndex,
                                                                 cso::IR_SPIRV));
-            apemode::LogInfo("+ CSO -> {}", compiledShader.CompiledIndex);
         }
 
         compiledShadersOffset = fbb.CreateVectorOfStructs(compiledShaderOffsets.data(), compiledShaderOffsets.size());
@@ -274,13 +266,12 @@ public:
             flatbuffers::Offset<flatbuffers::Vector<uint32_t>> definitionsOffset = fbb.CreateVector(
                 compiledShaderInfo.DefinitionIndices.data(), compiledShaderInfo.DefinitionIndices.size());
             compiledShaderInfoOffsets.push_back(cso::CreateCompiledShaderInfo(fbb,
-                                                                              cso::Shader(compiledShaderInfo.Type),
+                                                                              cso::Shader(compiledShaderInfo.ShaderType),
                                                                               compiledShaderInfo.CompiledShaderIndex,
                                                                               compiledShaderInfo.AssetIndex,
                                                                               compiledShaderInfo.DefinitionsIndex,
                                                                               definitionsOffset,
                                                                               includedFilesOffset));
-            apemode::LogInfo("+ CSO Info -> {}", compiledShaderInfo.CompiledShaderIndex);
         }
 
         compiledShaderInfosOffset =
@@ -320,12 +311,12 @@ public:
 
             compiledShaderInfo.CompiledShaderIndex = compiledShaderIndex;
             compiledShaderInfo.AssetIndex = GetStringIndex(cso.Asset);
-            compiledShaderInfo.Type = cso.Type;
+            compiledShaderInfo.ShaderType = cso.Type;
             compiledShaderInfo.DefinitionsIndex = GetStringIndex(cso.Definitions);
 
             city64.CombineWith(compiledShaderInfo.CompiledShaderIndex);
             city64.CombineWith(compiledShaderInfo.AssetIndex);
-            city64.CombineWith(compiledShaderInfo.Type);
+            city64.CombineWith(compiledShaderInfo.ShaderType);
             city64.CombineWith(compiledShaderInfo.DefinitionsIndex);
 
             for (auto& includedFile : cso.IncludedFiles) {
@@ -353,25 +344,25 @@ public:
     }
     HashedReflectedType GetHashedReflectedType(const apemode::shp::ReflectedType& reflectedType) {
         HashedReflectedType hashedReflectedType = {};
-        hashedReflectedType.NameIndex = GetStringIndex(reflectedType.name);
-        hashedReflectedType.ElementPrimitiveType = cso::ReflectedPrimitiveType(reflectedType.element_primitive_type);
-        hashedReflectedType.ElementByteSize = reflectedType.element_byte_size;
-        hashedReflectedType.ElementVectorLength = reflectedType.element_vector_length;
-        hashedReflectedType.ElementColumnCount = reflectedType.element_column_count;
-        hashedReflectedType.ElementMatrixByteStride = reflectedType.element_matrix_byte_stride;
-        hashedReflectedType.ArrayLength = reflectedType.array_length;
-        hashedReflectedType.bIsArrayLengthStatic = reflectedType.is_array_length_static;
-        hashedReflectedType.ArrayByteStride = reflectedType.array_byte_stride;
-        hashedReflectedType.EffectiveByteSize = reflectedType.effective_byte_size;
+        hashedReflectedType.NameIndex = GetStringIndex(reflectedType.Name);
+        hashedReflectedType.ElementPrimitiveType = cso::ReflectedPrimitiveType(reflectedType.ElementPrimitiveType);
+        hashedReflectedType.ElementByteSize = reflectedType.ElementByteSize;
+        hashedReflectedType.ElementVectorLength = reflectedType.ElementVectorLength;
+        hashedReflectedType.ElementColumnCount = reflectedType.ElementColumnCount;
+        hashedReflectedType.ElementMatrixByteStride = reflectedType.ElementMatrixByteStride;
+        hashedReflectedType.ArrayLength = reflectedType.ArrayLength;
+        hashedReflectedType.bIsArrayLengthStatic = reflectedType.bIsArrayLengthStatic;
+        hashedReflectedType.ArrayByteStride = reflectedType.ArrayByteStride;
+        hashedReflectedType.EffectiveByteSize = reflectedType.EffectiveByteSize;
         
-        for (auto& reflected_member_type : reflectedType.reflected_member_types) {
-            HashedReflectedType memberHashedType = GetHashedReflectedType(reflected_member_type->type);
+        for (auto& reflected_member_type : reflectedType.Members) {
+            HashedReflectedType memberHashedType = GetHashedReflectedType(reflected_member_type->Type);
             
             HashedReflectedTypeMember hashedReflectedMemberType = {};
-            hashedReflectedMemberType.NameIndex = GetStringIndex(reflected_member_type->name);
-            hashedReflectedMemberType.EffectiveByteSize = reflected_member_type->effective_size;
-            hashedReflectedMemberType.OccupiedByteSize = reflected_member_type->occupied_size;
-            hashedReflectedMemberType.ByteOffset = reflected_member_type->offset;
+            hashedReflectedMemberType.NameIndex = GetStringIndex(reflected_member_type->Name);
+            hashedReflectedMemberType.EffectiveByteSize = reflected_member_type->EffectiveByteSize;
+            hashedReflectedMemberType.OccupiedByteSize = reflected_member_type->OccupiedByteSize;
+            hashedReflectedMemberType.ByteOffset = reflected_member_type->ByteOffset;
             hashedReflectedMemberType.TypeIndex = GetReflectedTypeIndex(memberHashedType);
             hashedReflectedType.MemberTypes.push_back(hashedReflectedMemberType);
         }
@@ -407,14 +398,14 @@ public:
         return index;
     }
     HashedReflectedResource GetHashedReflectedResource(const apemode::shp::ReflectedResource& reflectedResource) {
-        HashedReflectedType hashedType = GetHashedReflectedType(reflectedResource.reflected_type);
+        HashedReflectedType hashedType = GetHashedReflectedType(reflectedResource.Type);
         
         HashedReflectedResource hashedReflectedResource = {};
-        hashedReflectedResource.NameIndex = GetStringIndex(reflectedResource.name);
+        hashedReflectedResource.NameIndex = GetStringIndex(reflectedResource.Name);
         hashedReflectedResource.TypeIndex = GetReflectedTypeIndex(hashedType);
-        hashedReflectedResource.DescriptorSet = reflectedResource.descriptor_set;
-        hashedReflectedResource.DescriptorBinding = reflectedResource.binding;
-        hashedReflectedResource.Locaton = reflectedResource.location;
+        hashedReflectedResource.DescriptorSet = reflectedResource.DecorationDescriptorSet;
+        hashedReflectedResource.DescriptorBinding = reflectedResource.DecorationBinding;
+        hashedReflectedResource.Locaton = reflectedResource.DecorationLocation;
         
         apemode::CityHash64Wrapper city64 = {};
         city64.CombineWith(hashedReflectedResource.NameIndex);
@@ -434,17 +425,17 @@ public:
         return index;
     }
     HashedReflectedConstant GetHashedReflectedConstant(const apemode::shp::ReflectedConstant& reflectedConstant) {
-        HashedReflectedType hashedType = GetHashedReflectedType(reflectedConstant.reflected_type);
+        HashedReflectedType hashedType = GetHashedReflectedType(reflectedConstant.Type);
         
         HashedReflectedConstant hashedReflectedConstant = {};
-        hashedReflectedConstant.NameIndex = GetStringIndex(reflectedConstant.name);
-        hashedReflectedConstant.MacroIndex = GetStringIndex(reflectedConstant.macro);
+        hashedReflectedConstant.NameIndex = GetStringIndex(reflectedConstant.Name);
+        hashedReflectedConstant.MacroIndex = GetStringIndex(reflectedConstant.MacroName);
         hashedReflectedConstant.TypeIndex = GetReflectedTypeIndex(hashedType);
-        hashedReflectedConstant.ConstantId = reflectedConstant.constant_id;
-        hashedReflectedConstant.DefaultScalarU64 = reflectedConstant.default_value.u64;
-        hashedReflectedConstant.bIsSpecialization = reflectedConstant.is_specialization;
-        hashedReflectedConstant.bIsUsedAsArrayLength = reflectedConstant.is_used_as_array_length;
-        hashedReflectedConstant.bIsUsedAsLUT = reflectedConstant.is_used_as_lut;
+        hashedReflectedConstant.ConstantId = reflectedConstant.ConstantId;
+        hashedReflectedConstant.DefaultScalarU64 = reflectedConstant.DefaultValue.u64;
+        hashedReflectedConstant.bIsSpecialization = reflectedConstant.bIsSpecialization;
+        hashedReflectedConstant.bIsUsedAsArrayLength = reflectedConstant.bIsUsedAsArrayLength;
+        hashedReflectedConstant.bIsUsedAsLUT = reflectedConstant.bIsUsedAsLUT;
         
         apemode::CityHash64Wrapper city64 = {};
         city64.CombineWith(hashedReflectedConstant.NameIndex);
@@ -470,50 +461,50 @@ public:
         HashedReflectedShader hashedReflectedShader = {};
         apemode::CityHash64Wrapper city64 = {};
         
-        hashedReflectedShader.NameIndex = GetStringIndex(reflectedShader.name);
+        hashedReflectedShader.NameIndex = GetStringIndex(reflectedShader.Name);
         city64.CombineWith(hashedReflectedShader.NameIndex);
         
-        for (auto& reflectedConstant : reflectedShader.reflected_constants) {
+        for (auto& reflectedConstant : reflectedShader.Constants) {
             HashedReflectedConstant hashedConstant = GetHashedReflectedConstant(reflectedConstant);
             hashedReflectedShader.ConstantIndices.push_back(GetReflectedConstantIndex(hashedConstant));
             city64.CombineWith(hashedConstant.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_stage_inputs) {
+        for (auto& reflectedResource : reflectedShader.StageInputs) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.StageInputIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_stage_outputs) {
+        for (auto& reflectedResource : reflectedShader.StageOutputs) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.StageOutputIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_uniform_buffers) {
+        for (auto& reflectedResource : reflectedShader.UniformBuffers) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.UniformBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_push_constant_buffers) {
+        for (auto& reflectedResource : reflectedShader.PushConstantBuffers) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.PushConstantBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_sampled_images) {
+        for (auto& reflectedResource : reflectedShader.SampledImages) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.SampledImageIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_subpass_inputs) {
+        for (auto& reflectedResource : reflectedShader.SubpassInputs) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.SubpassImageIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_images) {
+        for (auto& reflectedResource : reflectedShader.SeparateImages) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.SeparateImageIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.reflected_samplers) {
+        for (auto& reflectedResource : reflectedShader.SeparateSamplers) {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.SeparateSamplerIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
@@ -537,19 +528,19 @@ public:
         return index;
     }
     uint32_t GetStringIndex(const std::string& string) {
-        uint32_t hash = apemode::CityHash64(string.data(), string.size());
+        uint64_t hash = apemode::CityHash64(string.data(), string.size());
         auto it = std::find_if(uniqueStrings.begin(), uniqueStrings.end(), [hash](const UniqueString& hashedString) { return hashedString.Hash == hash; });
         if (it != uniqueStrings.end()) { return std::distance(uniqueStrings.begin(), it); }
         uint32_t index = uniqueStrings.size();
-        uniqueStrings.push_back({string, hash});
+        uniqueStrings.push_back({hash, string});
         return index;
     }
     uint32_t GetBufferIndex(const std::vector<uint8_t>& buffer) {
-        uint32_t hash = apemode::CityHash64((const char*)buffer.data(), buffer.size());
+        uint64_t hash = apemode::CityHash64((const char*)buffer.data(), buffer.size());
         auto it = std::find_if(uniqueBuffers.begin(), uniqueBuffers.end(), [hash](const UniqueBuffer& hashedBuffer) { return hashedBuffer.Hash == hash; });
         if (it != uniqueBuffers.end()) { return std::distance(uniqueBuffers.begin(), it); }
         uint32_t index = uniqueBuffers.size();
-        uniqueBuffers.push_back({buffer, hash});
+        uniqueBuffers.push_back({hash, buffer});
         return index;
     }
     // clang-format on
@@ -598,32 +589,6 @@ public:
     }
 };
 
-struct EFeedbackTypeWithOStream {
-    const apemode::shp::IShaderCompiler::IShaderFeedbackWriter::EFeedbackType e;
-
-    EFeedbackTypeWithOStream(const apemode::shp::IShaderCompiler::IShaderFeedbackWriter::EFeedbackType e) : e(e) {}
-
-    // clang-format off
-    template < typename OStream >
-    inline friend OStream& operator<<( OStream& os, const EFeedbackTypeWithOStream& feedbackType ) {
-        using e = apemode::shp::IShaderCompiler::IShaderFeedbackWriter;
-        switch ( feedbackType.e ) {
-        case e::eFeedbackType_CompilationStage_Assembly:                 return os << "Assembly";
-        case e::eFeedbackType_CompilationStage_Preprocessed:             return os << "Preprocessed";
-        case e::eFeedbackType_CompilationStage_PreprocessedOptimized:    return os << "PreprocessedOptimized";
-        case e::eFeedbackType_CompilationStage_Spv:                      return os << "Spv";
-        case e::eFeedbackType_CompilationStatus_CompilationError:        return os << "CompilationError";
-        case e::eFeedbackType_CompilationStatus_InternalError:           return os << "InternalError";
-        case e::eFeedbackType_CompilationStatus_InvalidAssembly:         return os << "InvalidAssembly";
-        case e::eFeedbackType_CompilationStatus_InvalidStage:            return os << "InvalidStage";
-        case e::eFeedbackType_CompilationStatus_NullResultObject:        return os << "NullResultObject";
-        case e::eFeedbackType_CompilationStatus_Success:                 return os << "Success";
-        default:                                                                                                            return os;
-        }
-    }
-    // clang-format on
-};
-
 class ShaderFeedbackWriter : public apemode::shp::IShaderCompiler::IShaderFeedbackWriter {
 public:
     void WriteFeedback(EFeedbackType eType,
@@ -638,8 +603,8 @@ public:
 
         if (eFeedbackType_CompilationStatus_Success != feedbackCompilationError) {
             apemode::LogError("ShaderCompiler: {}/{}: {}",
-                              EFeedbackTypeWithOStream(feedbackStage),
-                              EFeedbackTypeWithOStream(feedbackCompilationError),
+                              feedbackStage,
+                              feedbackCompilationError,
                               FullFilePath);
             apemode::LogError(" Msg: {}", (const char*)pContent);
             assert(false);
@@ -696,24 +661,37 @@ void ReplaceAll(std::string& data, const std::string& toSearch, const std::strin
     }
 }
 
-apemode::shp::IShaderCompiler::EShaderType GetShaderType(const std::string& shaderType) {
+apemode::shp::IShaderCompiler::ShaderType GetShaderType(const std::string& shaderType) {
     if (shaderType == "vert") {
-        return apemode::shp::IShaderCompiler::eShaderType_VertexShader;
+        return apemode::shp::IShaderCompiler::ShaderType::Vertex;
     } else if (shaderType == "frag") {
-        return apemode::shp::IShaderCompiler::eShaderType_FragmentShader;
+        return apemode::shp::IShaderCompiler::ShaderType::Fragment;
     } else if (shaderType == "comp") {
-        return apemode::shp::IShaderCompiler::eShaderType_ComputeShader;
+        return apemode::shp::IShaderCompiler::ShaderType::Compute;
     } else if (shaderType == "geom") {
-        return apemode::shp::IShaderCompiler::eShaderType_GeometryShader;
+        return apemode::shp::IShaderCompiler::ShaderType::Geometry;
     } else if (shaderType == "tesc") {
-        return apemode::shp::IShaderCompiler::eShaderType_TessControlShader;
+        return apemode::shp::IShaderCompiler::ShaderType::TessControl;
     } else if (shaderType == "tese") {
-        return apemode::shp::IShaderCompiler::eShaderType_TessEvaluationShader;
+        return apemode::shp::IShaderCompiler::ShaderType::TessEvaluation;
+    } else if (shaderType == "rgen") {
+        return apemode::shp::IShaderCompiler::ShaderType::RayGeneration;
+    } else if (shaderType == "ahit") {
+        return apemode::shp::IShaderCompiler::ShaderType::AnyHit;
+    } else if (shaderType == "chit") {
+        return apemode::shp::IShaderCompiler::ShaderType::ClosestHit;
+    } else if (shaderType == "miss") {
+        return apemode::shp::IShaderCompiler::ShaderType::Miss;
+    } else if (shaderType == "call") {
+        return apemode::shp::IShaderCompiler::ShaderType::Callable;
+    } else if (shaderType == "mesh") {
+        return apemode::shp::IShaderCompiler::ShaderType::Mesh;
+    } else if (shaderType == "task") {
+        return apemode::shp::IShaderCompiler::ShaderType::Task;
     }
 
-    apemode::LogError("Shader type should be one of there: vert, frag, comp, tesc, tese, instead got value: {}",
-                      shaderType);
-    return apemode::shp::IShaderCompiler::eShaderType_GLSL_InferFromSource;
+    apemode::LogError("Caught unexpected shader type: {}", shaderType);
+    return apemode::shp::IShaderCompiler::ShaderType::Count;
 }
 
 std::map<std::string, std::string> GetMacroDefinitions(const json& macrosJson) {
@@ -782,7 +760,9 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
     ShaderCompilerMacroDefinitionCollection concreteMacros;
     concreteMacros.Init(macroDefinitions);
 
-    apemode::shp::IShaderCompiler::EShaderType eShaderType = GetShaderType(shaderType);
+    apemode::shp::IShaderCompiler::ShaderType eShaderType = GetShaderType(shaderType);
+    if (eShaderType == apemode::shp::IShaderCompiler::ShaderType::Count) { return {}; }
+    
     cso.Type = cso::Shader(eShaderType);
 
     ShaderCompilerIncludedFileSet includedFileSet;

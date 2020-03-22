@@ -1,7 +1,6 @@
 #include "ShaderCompiler.Vulkan.h"
 
-#include <apemode/platform/AppState.h>
-
+#include <shaderc/shaderc.hpp>
 #include <spirv_glsl.hpp>
 #include <spirv_msl.hpp>
 #include <spirv_reflect.hpp>
@@ -56,6 +55,9 @@ constexpr ReflectedPrimitiveType Reflect(spirv_cross::SPIRType::BaseType bt) {
         case spirv_cross::SPIRType::Image: return eReflectedPrimitiveType_Image;
         case spirv_cross::SPIRType::SampledImage: return eReflectedPrimitiveType_SampledImage;
         case spirv_cross::SPIRType::Sampler: return eReflectedPrimitiveType_Sampler;
+        case spirv_cross::SPIRType::AtomicCounter: return eReflectedPrimitiveType_AtomicCounter;
+        case spirv_cross::SPIRType::AccelerationStructureNV: return eReflectedPrimitiveType_AccelerationStructure;
+        case spirv_cross::SPIRType::ControlPointArray: return eReflectedPrimitiveType_ControlPointArray;
         default: assert(false); return eReflectedPrimitiveTypeError;
     }; // clang-format on
 }
@@ -88,33 +90,33 @@ void PrintReflection(const ReflectedType& reflectedType,
 
     if (!memberName.empty()) { outputString += memberName + " : "; }
 
-    outputString += reflectedType.name;
+    outputString += reflectedType.Name;
 
     if (offset != -1 && total_size != -1) {
         outputString += " (offset=" + std::to_string(offset);
         outputString += ", size=" + std::to_string(total_size);
 
-        assert(total_size >= reflectedType.effective_byte_size && "Caught size miscalculation.");
-        if (uint32_t padding = total_size - reflectedType.effective_byte_size) {
+        assert(total_size >= reflectedType.EffectiveByteSize && "Caught size miscalculation.");
+        if (uint32_t padding = total_size - reflectedType.EffectiveByteSize) {
             outputString += ", padding=" + std::to_string(padding);
         }
         outputString += ")";
-    } else if (reflectedType.effective_byte_size) {
-        outputString += " (size=" + std::to_string(reflectedType.effective_byte_size);
+    } else if (reflectedType.EffectiveByteSize) {
+        outputString += " (size=" + std::to_string(reflectedType.EffectiveByteSize);
         outputString += ")";
     }
 
     apemode::LogInfo("{}", outputString);
 
-    if (!reflectedType.reflected_member_types.empty()) {
-        uint32_t memberCount = reflectedType.reflected_member_types.size();
+    if (!reflectedType.Members.empty()) {
+        uint32_t memberCount = reflectedType.Members.size();
         for (uint32_t i = 0; i < memberCount; ++i) {
-            PrintReflection(reflectedType.reflected_member_types[i]->type,
+            PrintReflection(reflectedType.Members[i]->Type,
                             prefix + (!isLastItem ? "│   " : "    "),
                             (i + 1) == memberCount,
-                            reflectedType.reflected_member_types[i]->name,
-                            reflectedType.reflected_member_types[i]->offset,
-                            reflectedType.reflected_member_types[i]->occupied_size);
+                            reflectedType.Members[i]->Name,
+                            reflectedType.Members[i]->ByteOffset,
+                            reflectedType.Members[i]->OccupiedByteSize);
         }
     }
 }
@@ -122,23 +124,23 @@ void PrintReflection(const ReflectedResource& reflectedResource, const std::stri
     std::string outputString = prefix;
     // clang-format off
     outputString += isLastItem ? "└ - " : "├ - ";
-    outputString += reflectedResource.name.empty() ? "<unnamed>" : reflectedResource.name;
-    outputString += " (set=" + ((reflectedResource.descriptor_set == -1) ? "?" : std::to_string(reflectedResource.descriptor_set));
-    outputString += ", binding=" + ((reflectedResource.binding == -1) ? "?" : std::to_string(reflectedResource.binding));
-    outputString += ", location=" + ((reflectedResource.location == -1) ? "?" : std::to_string(reflectedResource.location));
+    outputString += reflectedResource.Name.empty() ? "<unnamed>" : reflectedResource.Name;
+    outputString += " (set=" + ((reflectedResource.DecorationDescriptorSet == -1) ? "?" : std::to_string(reflectedResource.DecorationDescriptorSet));
+    outputString += ", binding=" + ((reflectedResource.DecorationBinding == -1) ? "?" : std::to_string(reflectedResource.DecorationBinding));
+    outputString += ", location=" + ((reflectedResource.DecorationLocation == -1) ? "?" : std::to_string(reflectedResource.DecorationLocation));
     outputString += ")";
     // clang-format on
 
     apemode::LogInfo("{}", outputString);
-    PrintReflection(reflectedResource.reflected_type, prefix + (!isLastItem ? "│   " : "    "), true);
+    PrintReflection(reflectedResource.Type, prefix + (!isLastItem ? "│   " : "    "), true);
 }
 void PrintReflection(const ReflectedConstant& reflectedConstant, const std::string& prefix, bool last) {
     std::string outputString = prefix;
     outputString += last ? "└ - " : "├ - ";
-    outputString += reflectedConstant.name;
+    outputString += reflectedConstant.Name;
 
     apemode::LogInfo("{}", outputString);
-    PrintReflection(reflectedConstant.reflected_type, prefix + (!last ? "│   " : "    "), true);
+    PrintReflection(reflectedConstant.Type, prefix + (!last ? "│   " : "    "), true);
 }
 void PrintReflection(const std::vector<ReflectedConstant>& reflectedConstants) {
     if (reflectedConstants.empty()) { return; }
@@ -158,17 +160,17 @@ void PrintReflection(const std::vector<ReflectedResource>& reflectedResources, c
 }
 
 void PrintReflection(const ReflectedShader& reflectedShader) {
-    PrintReflection(reflectedShader.reflected_constants);
-    PrintReflection(reflectedShader.reflected_stage_inputs, "stage inputs");
-    PrintReflection(reflectedShader.reflected_stage_outputs, "stage outputs");
-    PrintReflection(reflectedShader.reflected_uniform_buffers, "uniform buffers");
-    PrintReflection(reflectedShader.reflected_push_constant_buffers, "push constants");
-    PrintReflection(reflectedShader.reflected_sampled_images, "sampled images");
-    PrintReflection(reflectedShader.reflected_subpass_inputs, "subpass inputs");
-    PrintReflection(reflectedShader.reflected_storage_images, "storage images");
-    PrintReflection(reflectedShader.reflected_storage_buffers, "storage buffers");
-    PrintReflection(reflectedShader.reflected_images, "images");
-    PrintReflection(reflectedShader.reflected_samplers, "samplers");
+    PrintReflection(reflectedShader.Constants);
+    PrintReflection(reflectedShader.StageInputs, "stage inputs");
+    PrintReflection(reflectedShader.StageOutputs, "stage outputs");
+    PrintReflection(reflectedShader.UniformBuffers, "uniform buffers");
+    PrintReflection(reflectedShader.PushConstantBuffers, "push constants");
+    PrintReflection(reflectedShader.SampledImages, "sampled images");
+    PrintReflection(reflectedShader.SubpassInputs, "subpass inputs");
+    PrintReflection(reflectedShader.StorageImages, "storage images");
+    PrintReflection(reflectedShader.StorageBuffers, "storage buffers");
+    PrintReflection(reflectedShader.SeparateImages, "images");
+    PrintReflection(reflectedShader.SeparateSamplers, "samplers");
 }
 } // namespace
 
@@ -214,93 +216,93 @@ public:
     void ReflectMemberType(const spirv_cross::SPIRType& type,
                            ReflectedType& reflectedType,
                            uint32_t member_type_index) {
-        reflectedType.reflected_member_types[member_type_index].reset(apemode_new ReflectedStructMember());
-        auto& reflectedMemberType = *reflectedType.reflected_member_types[member_type_index];
+        reflectedType.Members[member_type_index].reset(apemode_new ReflectedStructMember());
+        auto& reflectedMemberType = *reflectedType.Members[member_type_index];
 
         const spirv_cross::SPIRType& memberType = Reflection.get_type(type.member_types[member_type_index]);
-        reflectedMemberType.name = Reflection.get_member_name(type.self, member_type_index);
-        reflectedMemberType.offset = Reflection.type_struct_member_offset(type, member_type_index);
-        reflectedMemberType.effective_size = Reflection.get_declared_struct_member_size(type, member_type_index);
-        reflectedMemberType.occupied_size = reflectedMemberType.effective_size;
+        reflectedMemberType.Name = Reflection.get_member_name(type.self, member_type_index);
+        reflectedMemberType.ByteOffset = Reflection.type_struct_member_offset(type, member_type_index);
+        reflectedMemberType.EffectiveByteSize = Reflection.get_declared_struct_member_size(type, member_type_index);
+        reflectedMemberType.OccupiedByteSize = reflectedMemberType.EffectiveByteSize;
 
-        reflectedMemberType.type = ReflectType(memberType, reflectedMemberType.effective_size);
+        reflectedMemberType.Type = ReflectType(memberType, reflectedMemberType.EffectiveByteSize);
 
         if (!memberType.array.empty()) {
             const uint32_t arrayStride = Reflection.type_struct_member_array_stride(type, member_type_index);
-            assert(arrayStride == reflectedMemberType.type.array_byte_stride && "Caught paddings.");
-            reflectedMemberType.type.array_byte_stride = arrayStride;
+            assert(arrayStride == reflectedMemberType.Type.ArrayByteStride && "Caught paddings.");
+            reflectedMemberType.Type.ArrayByteStride = arrayStride;
         }
 
         if (memberType.columns > 1) {
             uint32_t matrixStride = Reflection.type_struct_member_matrix_stride(type, member_type_index);
-            assert(matrixStride == reflectedMemberType.type.element_matrix_byte_stride && "Caught paddings.");
-            reflectedMemberType.type.element_matrix_byte_stride = matrixStride;
+            assert(matrixStride == reflectedMemberType.Type.ElementMatrixByteStride && "Caught paddings.");
+            reflectedMemberType.Type.ElementMatrixByteStride = matrixStride;
         }
     }
 
     ReflectedType ReflectType(const spirv_cross::SPIRType& type, uint32_t memberEffectiveSize = 0) {
         ReflectedType reflectedType = {};
 
-        reflectedType.name = Reflection.get_name(type.self);
+        reflectedType.Name = Reflection.get_name(type.self);
 
-        reflectedType.array_length = 1;
-        reflectedType.is_array_length_static = false;
-        reflectedType.element_vector_length = std::max<uint32_t>(1, type.vecsize);
-        reflectedType.element_column_count = std::max<uint32_t>(1, type.columns);
-        reflectedType.element_primitive_type = Reflect(type.basetype);
+        reflectedType.ArrayLength = 1;
+        reflectedType.bIsArrayLengthStatic = false;
+        reflectedType.ElementVectorLength = std::max<uint32_t>(1, type.vecsize);
+        reflectedType.ElementColumnCount = std::max<uint32_t>(1, type.columns);
+        reflectedType.ElementPrimitiveType = Reflect(type.basetype);
 
         // clang-format off
-        if (reflectedType.element_primitive_type == eReflectedPrimitiveType_Struct) {
-            reflectedType.element_byte_size = Reflection.get_declared_struct_size(type);
+        if (reflectedType.ElementPrimitiveType == eReflectedPrimitiveType_Struct) {
+            reflectedType.ElementByteSize = Reflection.get_declared_struct_size(type);
         } else {
-            reflectedType.element_byte_size = PrimitiveTypeSize(reflectedType.element_primitive_type) *
-                                              reflectedType.element_vector_length *
-                                              reflectedType.element_column_count;
+            reflectedType.ElementByteSize = PrimitiveTypeSize(reflectedType.ElementPrimitiveType) *
+                                              reflectedType.ElementVectorLength *
+                                              reflectedType.ElementColumnCount;
         }
 
         if (!type.array.empty()) {
-            reflectedType.is_array_length_static = type.array_size_literal[0];
-            if (reflectedType.is_array_length_static) {
-                reflectedType.array_length = type.array[0];
-                assert(reflectedType.array_length == (memberEffectiveSize / reflectedType.element_byte_size) && "Caught array size mismatch.");
+            reflectedType.bIsArrayLengthStatic = type.array_size_literal[0];
+            if (reflectedType.bIsArrayLengthStatic) {
+                reflectedType.ArrayLength = type.array[0];
+                assert(reflectedType.ArrayLength == (memberEffectiveSize / reflectedType.ElementByteSize) && "Caught array size mismatch.");
             } else {
-                reflectedType.array_length = memberEffectiveSize / reflectedType.element_byte_size;
+                reflectedType.ArrayLength = memberEffectiveSize / reflectedType.ElementByteSize;
             }
         }
         // clang-format on
 
-        reflectedType.element_matrix_byte_stride = reflectedType.element_byte_size / reflectedType.element_column_count;
-        reflectedType.array_byte_stride = reflectedType.element_byte_size;
-        reflectedType.effective_byte_size = reflectedType.array_length * reflectedType.array_byte_stride;
+        reflectedType.ElementMatrixByteStride = reflectedType.ElementByteSize / reflectedType.ElementColumnCount;
+        reflectedType.ArrayByteStride = reflectedType.ElementByteSize;
+        reflectedType.EffectiveByteSize = reflectedType.ArrayLength * reflectedType.ArrayByteStride;
 
-        if (reflectedType.element_primitive_type == eReflectedPrimitiveType_Struct) {
+        if (reflectedType.ElementPrimitiveType == eReflectedPrimitiveType_Struct) {
             const size_t member_count = type.member_types.size();
-            reflectedType.reflected_member_types.resize(member_count);
+            reflectedType.Members.resize(member_count);
             for (size_t i = 0; i < member_count; i++) { ReflectMemberType(type, reflectedType, i); }
 
             for (size_t i = 0; i < (member_count - 1); i++) {
-                const uint32_t nextOffset = reflectedType.reflected_member_types[i + 1]->offset;
-                const uint32_t thisOffset = reflectedType.reflected_member_types[i]->offset;
-                reflectedType.reflected_member_types[i]->occupied_size = nextOffset - thisOffset;
+                const uint32_t nextOffset = reflectedType.Members[i + 1]->ByteOffset;
+                const uint32_t thisOffset = reflectedType.Members[i]->ByteOffset;
+                reflectedType.Members[i]->OccupiedByteSize = nextOffset - thisOffset;
             }
         }
 
-        if (reflectedType.name.empty()) {
-            reflectedType.name = ToString(type.basetype);
+        if (reflectedType.Name.empty()) {
+            reflectedType.Name = ToString(type.basetype);
 
-            if (reflectedType.element_vector_length > 1 && reflectedType.element_column_count > 1) {
-                reflectedType.name += std::to_string(reflectedType.element_vector_length);
-                reflectedType.name += "x";
-                reflectedType.name += std::to_string(reflectedType.element_column_count);
-            } else if (reflectedType.element_vector_length > 1 || reflectedType.element_column_count > 1) {
-                const auto length = std::max(reflectedType.element_vector_length, reflectedType.element_column_count);
-                reflectedType.name += std::to_string(length);
+            if (reflectedType.ElementVectorLength > 1 && reflectedType.ElementColumnCount > 1) {
+                reflectedType.Name += std::to_string(reflectedType.ElementVectorLength);
+                reflectedType.Name += "x";
+                reflectedType.Name += std::to_string(reflectedType.ElementColumnCount);
+            } else if (reflectedType.ElementVectorLength > 1 || reflectedType.ElementColumnCount > 1) {
+                const auto length = std::max(reflectedType.ElementVectorLength, reflectedType.ElementColumnCount);
+                reflectedType.Name += std::to_string(length);
             }
 
-            if (reflectedType.array_length > 1) {
-                reflectedType.name += "[";
-                reflectedType.name += std::to_string(reflectedType.array_length);
-                reflectedType.name += reflectedType.is_array_length_static ? "|!]" : "|?]";
+            if (reflectedType.ArrayLength > 1) {
+                reflectedType.Name += "[";
+                reflectedType.Name += std::to_string(reflectedType.ArrayLength);
+                reflectedType.Name += reflectedType.bIsArrayLengthStatic ? "|!]" : "|?]";
             }
         }
 
@@ -314,11 +316,11 @@ public:
 
     void ReflectResource(const spirv_cross::Resource& resource, ReflectedResource& reflectedResource) {
         const spirv_cross::SPIRType& type = Reflection.get_type(resource.base_type_id);
-        reflectedResource.reflected_type = ReflectType(type);
-        reflectedResource.name = Reflection.get_name(resource.id);
-        reflectedResource.descriptor_set = ReflectDecoration(resource.id, spv::DecorationDescriptorSet);
-        reflectedResource.binding = ReflectDecoration(resource.id, spv::DecorationBinding);
-        reflectedResource.location = ReflectDecoration(resource.id, spv::DecorationLocation);
+        reflectedResource.Type = ReflectType(type);
+        reflectedResource.Name = Reflection.get_name(resource.id);
+        reflectedResource.DecorationDescriptorSet = ReflectDecoration(resource.id, spv::DecorationDescriptorSet);
+        reflectedResource.DecorationBinding = ReflectDecoration(resource.id, spv::DecorationBinding);
+        reflectedResource.DecorationLocation = ReflectDecoration(resource.id, spv::DecorationLocation);
     }
 
     void ReflectResourceVector(const spirv_cross::SmallVector<spirv_cross::Resource>& resources,
@@ -334,18 +336,18 @@ public:
     void ReflectConstant(const spirv_cross::SpecializationConstant& constant, ReflectedConstant& reflectedConstant) {
         const spirv_cross::SPIRConstant& spirConstant = Reflection.get_constant(constant.id);
         const spirv_cross::SPIRType& type = Reflection.get_type(spirConstant.constant_type);
-        reflectedConstant.name = Reflection.get_name(constant.id);
-        reflectedConstant.macro = spirConstant.specialization_constant_macro_name;
-        reflectedConstant.reflected_type = ReflectType(type);
-        reflectedConstant.constant_id = constant.constant_id;
-        reflectedConstant.is_specialization = spirConstant.specialization;
-        reflectedConstant.is_used_as_array_length = spirConstant.is_used_as_array_length;
-        reflectedConstant.is_used_as_lut = spirConstant.is_used_as_lut;
+        reflectedConstant.Name = Reflection.get_name(constant.id);
+        reflectedConstant.MacroName = spirConstant.specialization_constant_macro_name;
+        reflectedConstant.Type = ReflectType(type);
+        reflectedConstant.ConstantId = constant.constant_id;
+        reflectedConstant.bIsSpecialization = spirConstant.specialization;
+        reflectedConstant.bIsUsedAsArrayLength = spirConstant.is_used_as_array_length;
+        reflectedConstant.bIsUsedAsLUT = spirConstant.is_used_as_lut;
 
-        reflectedConstant.default_value.u64 = 0;
+        reflectedConstant.DefaultValue.u64 = 0;
         const uint64_t defaultScalar = spirConstant.scalar_u64();
-        const size_t effectiveBytes = reflectedConstant.reflected_type.effective_byte_size;
-        memcpy(reflectedConstant.default_value.u8, &defaultScalar, effectiveBytes);
+        const size_t effectiveBytes = reflectedConstant.Type.EffectiveByteSize;
+        memcpy(reflectedConstant.DefaultValue.u8, &defaultScalar, effectiveBytes);
     }
 
     void ReflectConstantVector(const spirv_cross::SmallVector<spirv_cross::SpecializationConstant>& constants,
@@ -360,18 +362,18 @@ public:
 
     void PopulateReflection() {
         const auto& constants = Reflection.get_specialization_constants();
-        ReflectConstantVector(constants, Reflected.reflected_constants);
+        ReflectConstantVector(constants, Reflected.Constants);
 
         const spirv_cross::ShaderResources shaderResources = Reflection.get_shader_resources();
-        ReflectResourceVector(shaderResources.uniform_buffers, Reflected.reflected_uniform_buffers);
-        ReflectResourceVector(shaderResources.push_constant_buffers, Reflected.reflected_push_constant_buffers);
-        ReflectResourceVector(shaderResources.stage_inputs, Reflected.reflected_stage_inputs);
-        ReflectResourceVector(shaderResources.stage_outputs, Reflected.reflected_stage_outputs);
-        ReflectResourceVector(shaderResources.sampled_images, Reflected.reflected_sampled_images);
-        ReflectResourceVector(shaderResources.separate_images, Reflected.reflected_images);
-        ReflectResourceVector(shaderResources.separate_samplers, Reflected.reflected_samplers);
-        ReflectResourceVector(shaderResources.storage_images, Reflected.reflected_storage_images);
-        ReflectResourceVector(shaderResources.storage_buffers, Reflected.reflected_storage_buffers);
+        ReflectResourceVector(shaderResources.uniform_buffers, Reflected.UniformBuffers);
+        ReflectResourceVector(shaderResources.push_constant_buffers, Reflected.PushConstantBuffers);
+        ReflectResourceVector(shaderResources.stage_inputs, Reflected.StageInputs);
+        ReflectResourceVector(shaderResources.stage_outputs, Reflected.StageOutputs);
+        ReflectResourceVector(shaderResources.sampled_images, Reflected.SampledImages);
+        ReflectResourceVector(shaderResources.separate_images, Reflected.SeparateImages);
+        ReflectResourceVector(shaderResources.separate_samplers, Reflected.SeparateSamplers);
+        ReflectResourceVector(shaderResources.storage_images, Reflected.StorageImages);
+        ReflectResourceVector(shaderResources.storage_buffers, Reflected.StorageBuffers);
 
         PrintReflection(Reflected);
     }
@@ -446,7 +448,7 @@ public:
     apemode::unique_ptr<ICompiledShader> Compile(const std::string& ShaderName,
                                                  const std::string& ShaderCode,
                                                  const IMacroDefinitionCollection* pMacros,
-                                                 EShaderType eShaderKind,
+                                                 ShaderType eShaderKind,
                                                  EShaderOptimizationType eShaderOptimization) const override;
 
     /* @note Compiling from source files */
@@ -458,7 +460,7 @@ public:
 
     apemode::unique_ptr<ICompiledShader> Compile(const std::string& FilePath,
                                                  const IMacroDefinitionCollection* pMacros,
-                                                 EShaderType eShaderKind,
+                                                 ShaderType eShaderKind,
                                                  EShaderOptimizationType eShaderOptimization,
                                                  IIncludedFileSet* pOutIncludedFiles) const override;
 
@@ -486,7 +488,7 @@ static apemode::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     const std::string& shaderName,
     const std::string& shaderContent,
     const IShaderCompiler::IMacroDefinitionCollection* pMacros,
-    const IShaderCompiler::EShaderType eShaderKind,
+    const IShaderCompiler::ShaderType eShaderKind,
     shaderc::CompileOptions& options,
     const bool bAssembly,
     const shaderc::Compiler* pCompiler,
@@ -605,7 +607,7 @@ apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     const std::string& shaderName,
     const std::string& shaderContent,
     const IMacroDefinitionCollection* pMacros,
-    const EShaderType eShaderKind,
+    const ShaderType eShaderKind,
     const EShaderOptimizationType eShaderOptimization) const {
     apemode_memory_allocation_scope;
 
@@ -621,7 +623,7 @@ apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
 apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     const std::string& InFilePath,
     const IMacroDefinitionCollection* pMacros,
-    const EShaderType eShaderKind,
+    const ShaderType eShaderKind,
     const EShaderOptimizationType eShaderOptimization,
     IIncludedFileSet* pOutIncludedFiles) const {
     apemode_memory_allocation_scope;

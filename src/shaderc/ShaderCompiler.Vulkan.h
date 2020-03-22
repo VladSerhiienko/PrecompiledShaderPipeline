@@ -8,7 +8,6 @@
 #include <map>
 #include <memory>
 #include <set>
-#include <shaderc/shaderc.hpp>
 #include <string>
 #include <vector>
 
@@ -32,6 +31,9 @@ enum ReflectedPrimitiveType {
     eReflectedPrimitiveType_Image,
     eReflectedPrimitiveType_Sampler,
     eReflectedPrimitiveType_SampledImage,
+    eReflectedPrimitiveType_AtomicCounter,
+    eReflectedPrimitiveType_AccelerationStructure,
+    eReflectedPrimitiveType_ControlPointArray,
     eReflectedPrimitiveTypeError,
 };
 
@@ -42,25 +44,25 @@ struct ReflectedType {
     ReflectedType& operator=(ReflectedType&&);
     ~ReflectedType();
 
-    std::string name;
-    ReflectedPrimitiveType element_primitive_type;
-    uint32_t element_byte_size;
-    uint32_t element_vector_length;
-    uint32_t element_column_count;
-    uint32_t element_matrix_byte_stride;
-    uint32_t array_length;
-    bool is_array_length_static;
-    uint32_t array_byte_stride;
-    uint32_t effective_byte_size;
-    apemode::vector<apemode::unique_ptr<ReflectedStructMember>> reflected_member_types;
+    std::string Name = "";
+    ReflectedPrimitiveType ElementPrimitiveType = eReflectedPrimitiveTypeError;
+    uint32_t ElementByteSize = 0;
+    uint32_t ElementVectorLength = 0;
+    uint32_t ElementColumnCount = 0;
+    uint32_t ElementMatrixByteStride = 0;
+    uint32_t ArrayLength = 0;
+    bool bIsArrayLengthStatic = false;
+    uint32_t ArrayByteStride = 0;
+    uint32_t EffectiveByteSize = 0;
+    apemode::vector<apemode::unique_ptr<ReflectedStructMember>> Members = {};
 };
 
 struct ReflectedStructMember {
-    std::string name;
-    ReflectedType type = {};
-    uint32_t effective_size;
-    uint32_t occupied_size;
-    uint32_t offset;
+    std::string Name = "";
+    ReflectedType Type = {};
+    uint32_t EffectiveByteSize = 0;
+    uint32_t OccupiedByteSize = 0;
+    uint32_t ByteOffset = 0;
 };
 
 struct ReflectedResource {
@@ -69,11 +71,11 @@ struct ReflectedResource {
     ReflectedResource& operator=(ReflectedResource&&) = default;
     ~ReflectedResource() = default;
 
-    std::string name;
-    ReflectedType reflected_type;
-    uint32_t descriptor_set;
-    uint32_t binding;
-    uint32_t location;
+    std::string Name = "";
+    ReflectedType Type = {};
+    uint32_t DecorationDescriptorSet = -1;
+    uint32_t DecorationBinding = -1;
+    uint32_t DecorationLocation = -1;
 };
 
 struct ReflectedConstantDefaultValue {
@@ -92,14 +94,14 @@ struct ReflectedConstant {
     ReflectedConstant& operator=(ReflectedConstant&&) = default;
     ~ReflectedConstant() = default;
 
-    std::string name;
-    std::string macro;
-    ReflectedConstantDefaultValue default_value = {};
-    uint32_t constant_id;
-    ReflectedType reflected_type;
-    bool is_used_as_lut;
-    bool is_used_as_array_length;
-    bool is_specialization;
+    std::string Name = "";
+    std::string MacroName = "";
+    ReflectedConstantDefaultValue DefaultValue = {};
+    uint32_t ConstantId = -1;
+    ReflectedType Type = {};
+    bool bIsUsedAsLUT = false;
+    bool bIsUsedAsArrayLength = false;
+    bool bIsSpecialization = false;
 };
 
 struct ReflectedShader {
@@ -108,18 +110,18 @@ struct ReflectedShader {
     ReflectedShader& operator=(ReflectedShader&&) = default;
     ~ReflectedShader() = default;
 
-    std::string name;
-    std::vector<ReflectedConstant> reflected_constants;
-    std::vector<ReflectedResource> reflected_stage_inputs;
-    std::vector<ReflectedResource> reflected_stage_outputs;
-    std::vector<ReflectedResource> reflected_uniform_buffers;
-    std::vector<ReflectedResource> reflected_push_constant_buffers;
-    std::vector<ReflectedResource> reflected_sampled_images;
-    std::vector<ReflectedResource> reflected_subpass_inputs;
-    std::vector<ReflectedResource> reflected_storage_images;
-    std::vector<ReflectedResource> reflected_storage_buffers;
-    std::vector<ReflectedResource> reflected_images;
-    std::vector<ReflectedResource> reflected_samplers;
+    std::string Name = "";
+    std::vector<ReflectedConstant> Constants = {};
+    std::vector<ReflectedResource> StageInputs = {};
+    std::vector<ReflectedResource> StageOutputs = {};
+    std::vector<ReflectedResource> UniformBuffers = {};
+    std::vector<ReflectedResource> PushConstantBuffers = {};
+    std::vector<ReflectedResource> SampledImages = {};
+    std::vector<ReflectedResource> SubpassInputs = {};
+    std::vector<ReflectedResource> StorageImages = {};
+    std::vector<ReflectedResource> StorageBuffers = {};
+    std::vector<ReflectedResource> SeparateImages = {};
+    std::vector<ReflectedResource> SeparateSamplers = {};
 };
 
 class ICompiledShader {
@@ -213,38 +215,22 @@ public:
     };
 
     /* Copy-paste from shaderc */
-    enum EShaderType {
-        // Forced shader kinds. These shader kinds force the compiler to compile the
-        // source code as the specified kind of shader.
-        eShaderType_VertexShader,
-        eShaderType_FragmentShader,
-        eShaderType_ComputeShader,
-        eShaderType_GeometryShader,
-        eShaderType_TessControlShader,
-        eShaderType_TessEvaluationShader,
-
-        eShaderType_GLSL_VertexShader = eShaderType_VertexShader,
-        eShaderType_GLSL_FragmentShader = eShaderType_FragmentShader,
-        eShaderType_GLSL_ComputeShader = eShaderType_ComputeShader,
-        eShaderType_GLSL_GeometryShader = eShaderType_GeometryShader,
-        eShaderType_GLSL_TessControlShader = eShaderType_TessControlShader,
-        eShaderType_GLSL_TessEvaluationShader = eShaderType_TessEvaluationShader,
-
-        // Deduce the shader kind from #pragma annotation in the source code. Compiler
-        // will emit error if #pragma annotation is not found.
-        eShaderType_GLSL_InferFromSource,
-
-        // Default shader kinds. Compiler will fall back to compile the source code as
-        // the specified kind of shader when #pragma annotation is not found in the
-        // source code.
-        eShaderType_GLSL_Default_VertexShader,
-        eShaderType_GLSL_Default_FragmentShader,
-        eShaderType_GLSL_Default_ComputeShader,
-        eShaderType_GLSL_Default_GeometryShader,
-        eShaderType_GLSL_Default_TessControlShader,
-        eShaderType_GLSL_Default_TessEvaluationShader,
-
-        eShaderType_SPIRV_assembly,
+    enum class ShaderType {
+        Vertex = 0,
+        Fragment,
+        Compute,
+        Geometry,
+        TessControl,
+        TessEvaluation,
+        RayGeneration,
+        AnyHit,
+        ClosestHit,
+        Miss,
+        Intersection,
+        Callable,
+        Task,
+        Mesh,
+        Count,
     };
 
     /* Copy-paste from shaderc */
@@ -261,7 +247,7 @@ public:
     virtual apemode::unique_ptr<ICompiledShader> Compile(const std::string& shaderName,
                                                          const std::string& sourceCode,
                                                          const IMacroDefinitionCollection* pMacros,
-                                                         EShaderType eShaderKind,
+                                                         ShaderType eShaderKind,
                                                          EShaderOptimizationType eShaderOptimization) const = 0;
 
     /* @note Compiling from source files */
@@ -273,7 +259,7 @@ public:
 
     virtual apemode::unique_ptr<ICompiledShader> Compile(const std::string& filePath,
                                                          const IMacroDefinitionCollection* pMacros,
-                                                         EShaderType eShaderKind,
+                                                         ShaderType eShaderKind,
                                                          EShaderOptimizationType eShaderOptimization,
                                                          IIncludedFileSet* pOutIncludedFiles) const = 0;
 };
