@@ -106,6 +106,16 @@ table ReflectedType {
     member_types : [ReflectedStructMember];
 }
 
+struct MemoryRange {
+    offset : uint;
+    size : uint;
+}
+
+table ReflectedResourceState {
+    is_active : bool;
+    active_ranges : [MemoryRange];
+}
+
 struct ReflectedResource {
     name_index : uint;
     type_index : uint;
@@ -134,6 +144,11 @@ table ReflectedShader {
     subpass_input_indices : [uint];
     image_indices : [uint];
     sampler_indices : [uint];
+    storage_image_indices : [uint];
+    storage_buffer_indices : [uint];
+    uniform_buffer_state_indices : [uint];
+    push_constant_buffer_state_indices : [uint];
+    storage_buffer_state_indices : [uint];
 }
 
 struct CompiledShader {
@@ -154,6 +169,7 @@ table CompiledShaderCollection {
     reflected_types : [ReflectedType];
     reflected_resources : [ReflectedResource];
     reflected_constants : [ReflectedConstant];
+    reflected_resource_states : [ReflectedResourceState];
     strings : [UniqueString];
     buffers : [UniqueBuffer];
 }

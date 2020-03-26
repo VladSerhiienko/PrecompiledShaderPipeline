@@ -1,7 +1,5 @@
 #pragma once
 
-#include <apemode/platform/AppState.h>
-#include <apemode/platform/IAssetManager.h>
 #include <assert.h>
 #include <stdint.h>
 
@@ -54,7 +52,7 @@ struct ReflectedType {
     bool bIsArrayLengthStatic = false;
     uint32_t ArrayByteStride = 0;
     uint32_t EffectiveByteSize = 0;
-    apemode::vector<apemode::unique_ptr<ReflectedStructMember>> Members = {};
+    std::vector<std::unique_ptr<ReflectedStructMember>> Members = {};
 };
 
 struct ReflectedStructMember {
@@ -63,6 +61,11 @@ struct ReflectedStructMember {
     uint32_t EffectiveByteSize = 0;
     uint32_t OccupiedByteSize = 0;
     uint32_t ByteOffset = 0;
+};
+
+struct ReflectedMemoryRange {
+    uint32_t offset = 0;
+    uint32_t size = 0;
 };
 
 struct ReflectedResource {
@@ -76,6 +79,8 @@ struct ReflectedResource {
     uint32_t DecorationDescriptorSet = -1;
     uint32_t DecorationBinding = -1;
     uint32_t DecorationLocation = -1;
+    bool bIsActive = false;
+    std::vector<ReflectedMemoryRange> ActiveRanges = {};
 };
 
 struct ReflectedConstantDefaultValue {
@@ -244,11 +249,11 @@ public:
 
     /* @note Compiling from source string */
 
-    virtual apemode::unique_ptr<ICompiledShader> Compile(const std::string& shaderName,
-                                                         const std::string& sourceCode,
-                                                         const IMacroDefinitionCollection* pMacros,
-                                                         ShaderType eShaderKind,
-                                                         EShaderOptimizationType eShaderOptimization) const = 0;
+    virtual std::unique_ptr<ICompiledShader> Compile(const std::string& shaderName,
+                                                     const std::string& sourceCode,
+                                                     const IMacroDefinitionCollection* pMacros,
+                                                     ShaderType eShaderKind,
+                                                     EShaderOptimizationType eShaderOptimization) const = 0;
 
     /* @note Compiling from source files */
 
@@ -257,14 +262,14 @@ public:
     virtual void SetShaderFileReader(IShaderFileReader* pShaderFileReader) = 0;
     virtual void SetShaderFeedbackWriter(IShaderFeedbackWriter* pShaderFeedbackWriter) = 0;
 
-    virtual apemode::unique_ptr<ICompiledShader> Compile(const std::string& filePath,
-                                                         const IMacroDefinitionCollection* pMacros,
-                                                         ShaderType eShaderKind,
-                                                         EShaderOptimizationType eShaderOptimization,
-                                                         IIncludedFileSet* pOutIncludedFiles) const = 0;
+    virtual std::unique_ptr<ICompiledShader> Compile(const std::string& filePath,
+                                                     const IMacroDefinitionCollection* pMacros,
+                                                     ShaderType eShaderKind,
+                                                     EShaderOptimizationType eShaderOptimization,
+                                                     IIncludedFileSet* pOutIncludedFiles) const = 0;
 };
 
-apemode::unique_ptr<IShaderCompiler> NewShaderCompiler();
+std::unique_ptr<IShaderCompiler> NewShaderCompiler();
 
 } // namespace shp
 } // namespace apemode

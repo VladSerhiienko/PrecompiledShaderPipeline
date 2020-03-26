@@ -1,5 +1,8 @@
 #include "ShaderCompiler.Vulkan.h"
 
+#include <apemode/platform/AppState.h>
+#include <apemode/platform/IAssetManager.h>
+
 #include <shaderc/shaderc.hpp>
 #include <spirv_glsl.hpp>
 #include <spirv_msl.hpp>
@@ -122,12 +125,28 @@ void PrintReflection(const ReflectedType& reflectedType,
 }
 void PrintReflection(const ReflectedResource& reflectedResource, const std::string& prefix, bool isLastItem) {
     std::string outputString = prefix;
+    
     // clang-format off
     outputString += isLastItem ? "└ - " : "├ - ";
     outputString += reflectedResource.Name.empty() ? "<unnamed>" : reflectedResource.Name;
     outputString += " (set=" + ((reflectedResource.DecorationDescriptorSet == -1) ? "?" : std::to_string(reflectedResource.DecorationDescriptorSet));
     outputString += ", binding=" + ((reflectedResource.DecorationBinding == -1) ? "?" : std::to_string(reflectedResource.DecorationBinding));
     outputString += ", location=" + ((reflectedResource.DecorationLocation == -1) ? "?" : std::to_string(reflectedResource.DecorationLocation));
+    outputString += ", active=" + std::string(reflectedResource.bIsActive ? "yes" : "no");
+    
+    if (!reflectedResource.ActiveRanges.empty()) {
+        outputString += ", active_ranges=[";
+        for (auto& r : reflectedResource.ActiveRanges) {
+            outputString += "(";
+            outputString += std::to_string(r.offset);
+            outputString += ":";
+            outputString += std::to_string(r.size);
+            outputString += "),";
+        }
+        
+        outputString.back() = ']';
+    }
+    
     outputString += ")";
     // clang-format on
 
@@ -181,20 +200,20 @@ ReflectedType::~ReflectedType() = default;
 
 class CompiledShader : public ICompiledShader {
 public:
-    apemode::vector<uint32_t> Dwords = {};
-    apemode::string8 PreprocessedSrc = {};
-    apemode::string8 AssemblySrc = {};
-    apemode::string8 CompiledGLSL = {};
-    apemode::string8 CompiledMSL = {};
+    std::vector<uint32_t> Dwords = {};
+    std::string PreprocessedSrc = {};
+    std::string AssemblySrc = {};
+    std::string CompiledGLSL = {};
+    std::string CompiledMSL = {};
     apemode::shp::ReflectedShader Reflected = {};
 
     spirv_cross::CompilerGLSL CompilerGLSL;
     spirv_cross::CompilerMSL CompilerMSL;
     spirv_cross::Compiler& Reflection;
 
-    CompiledShader(apemode::vector<uint32_t>&& dwords,
-                   apemode::string8&& preprocessedSrc,
-                   apemode::string8&& assemblySrc)
+    CompiledShader(std::vector<uint32_t>&& dwords,
+                   std::string&& preprocessedSrc,
+                   std::string&& assemblySrc)
         : Dwords(std::move(dwords))
         , PreprocessedSrc(std::move(preprocessedSrc))
         , AssemblySrc(std::move(assemblySrc))
@@ -204,10 +223,13 @@ public:
 
         spirv_cross::CompilerGLSL::Options glslOptions = {};
         glslOptions.vulkan_semantics = true;
+        // glslOptions.es = true;
+        // glslOptions.version = 100;
+        // glslOptions.vulkan_semantics = false;
         CompilerGLSL.set_common_options(glslOptions);
 
-        CompiledGLSL = apemode::string8(CompilerGLSL.compile().c_str());
-        CompiledMSL = apemode::string8(CompilerMSL.compile().c_str());
+        CompiledGLSL = CompilerGLSL.compile();
+        CompiledMSL = CompilerMSL.compile();
         PopulateReflection();
     }
 
@@ -216,7 +238,7 @@ public:
     void ReflectMemberType(const spirv_cross::SPIRType& type,
                            ReflectedType& reflectedType,
                            uint32_t member_type_index) {
-        reflectedType.Members[member_type_index].reset(apemode_new ReflectedStructMember());
+        reflectedType.Members[member_type_index].reset(new ReflectedStructMember());
         auto& reflectedMemberType = *reflectedType.Members[member_type_index];
 
         const spirv_cross::SPIRType& memberType = Reflection.get_type(type.member_types[member_type_index]);
@@ -314,22 +336,61 @@ public:
         return Reflection.get_decoration(resourceId, decoration);
     }
 
-    void ReflectResource(const spirv_cross::Resource& resource, ReflectedResource& reflectedResource) {
+    void ReflectResourceActiveRanges(const spirv_cross::Resource& resource, ReflectedResource& reflectedResource) {
+        if (reflectedResource.Type.ElementPrimitiveType != eReflectedPrimitiveType_Struct) { return; }
+        auto activeRanges = Reflection.get_active_buffer_ranges(resource.id);
+        if (!activeRanges.empty()) {
+        
+            // clang-format off
+            reflectedResource.ActiveRanges.reserve(activeRanges.size());
+            for (auto& r : activeRanges) { reflectedResource.ActiveRanges.push_back({(uint32_t)r.offset, (uint32_t)r.range}); }
+            std::sort(reflectedResource.ActiveRanges.begin(), reflectedResource.ActiveRanges.end(), [](ReflectedMemoryRange r0, ReflectedMemoryRange r1){ return r0.offset < r1.offset; });
+            // clang-format on
+
+            //
+            // Collapse into minimal amount of memory ranges.
+            //
+            
+            if (reflectedResource.ActiveRanges.size() > 1) {
+                auto prevIt = reflectedResource.ActiveRanges.begin();
+                auto currIt = std::next(prevIt);
+                while (currIt != reflectedResource.ActiveRanges.end()) {
+                    if (currIt->offset == (prevIt->offset + prevIt->size)) {
+                        prevIt->size += currIt->size;
+                        currIt = reflectedResource.ActiveRanges.erase(currIt);
+                    } else {
+                        prevIt = currIt;
+                        currIt = std::next(prevIt);
+                    }
+                }
+            }
+        }
+    }
+
+    void ReflectResource(const spirv_cross::Resource& resource, ReflectedResource& reflectedResource, const std::unordered_set<spirv_cross::VariableID>& activeVariableIds, bool bMightHaveActiveRanges) {
         const spirv_cross::SPIRType& type = Reflection.get_type(resource.base_type_id);
         reflectedResource.Type = ReflectType(type);
         reflectedResource.Name = Reflection.get_name(resource.id);
         reflectedResource.DecorationDescriptorSet = ReflectDecoration(resource.id, spv::DecorationDescriptorSet);
         reflectedResource.DecorationBinding = ReflectDecoration(resource.id, spv::DecorationBinding);
         reflectedResource.DecorationLocation = ReflectDecoration(resource.id, spv::DecorationLocation);
+        
+        const auto it = activeVariableIds.find(resource.id);
+        if (it != activeVariableIds.end()) {
+            reflectedResource.bIsActive = true;
+            ReflectResourceActiveRanges(resource, reflectedResource);
+        }
     }
 
     void ReflectResourceVector(const spirv_cross::SmallVector<spirv_cross::Resource>& resources,
-                               std::vector<ReflectedResource>& reflectedResources) {
+                               std::vector<ReflectedResource>& reflectedResources,
+                               const std::unordered_set<spirv_cross::VariableID>& activeVariableIds,
+                               bool bMightHaveActiveRanges = false) {
         reflectedResources.resize(resources.size());
         for (size_t i = 0; i < resources.size(); ++i) {
             const spirv_cross::Resource& resource = resources[i];
             auto& reflectedResource = reflectedResources[i];
-            ReflectResource(resource, reflectedResource);
+            ReflectResource(resource, reflectedResource, activeVariableIds, bMightHaveActiveRanges);
         }
     }
 
@@ -343,6 +404,12 @@ public:
         reflectedConstant.bIsSpecialization = spirConstant.specialization;
         reflectedConstant.bIsUsedAsArrayLength = spirConstant.is_used_as_array_length;
         reflectedConstant.bIsUsedAsLUT = spirConstant.is_used_as_lut;
+        
+        if (reflectedConstant.MacroName.empty()) {
+            constexpr std::string_view kSpirvCrossConstantIdPrefix = "SPIRV_CROSS_CONSTANT_ID_";
+            reflectedConstant.MacroName = kSpirvCrossConstantIdPrefix;
+            reflectedConstant.MacroName += std::to_string(reflectedConstant.ConstantId);
+        }
 
         reflectedConstant.DefaultValue.u64 = 0;
         const uint64_t defaultScalar = spirConstant.scalar_u64();
@@ -363,17 +430,18 @@ public:
     void PopulateReflection() {
         const auto& constants = Reflection.get_specialization_constants();
         ReflectConstantVector(constants, Reflected.Constants);
-
+        
+        const auto activeVariableIds = Reflection.get_active_interface_variables();
         const spirv_cross::ShaderResources shaderResources = Reflection.get_shader_resources();
-        ReflectResourceVector(shaderResources.uniform_buffers, Reflected.UniformBuffers);
-        ReflectResourceVector(shaderResources.push_constant_buffers, Reflected.PushConstantBuffers);
-        ReflectResourceVector(shaderResources.stage_inputs, Reflected.StageInputs);
-        ReflectResourceVector(shaderResources.stage_outputs, Reflected.StageOutputs);
-        ReflectResourceVector(shaderResources.sampled_images, Reflected.SampledImages);
-        ReflectResourceVector(shaderResources.separate_images, Reflected.SeparateImages);
-        ReflectResourceVector(shaderResources.separate_samplers, Reflected.SeparateSamplers);
-        ReflectResourceVector(shaderResources.storage_images, Reflected.StorageImages);
-        ReflectResourceVector(shaderResources.storage_buffers, Reflected.StorageBuffers);
+        ReflectResourceVector(shaderResources.uniform_buffers, Reflected.UniformBuffers, activeVariableIds, true);
+        ReflectResourceVector(shaderResources.push_constant_buffers, Reflected.PushConstantBuffers, activeVariableIds, true);
+        ReflectResourceVector(shaderResources.stage_inputs, Reflected.StageInputs, activeVariableIds);
+        ReflectResourceVector(shaderResources.stage_outputs, Reflected.StageOutputs, activeVariableIds);
+        ReflectResourceVector(shaderResources.sampled_images, Reflected.SampledImages, activeVariableIds);
+        ReflectResourceVector(shaderResources.separate_images, Reflected.SeparateImages, activeVariableIds);
+        ReflectResourceVector(shaderResources.separate_samplers, Reflected.SeparateSamplers, activeVariableIds);
+        ReflectResourceVector(shaderResources.storage_images, Reflected.StorageImages, activeVariableIds);
+        ReflectResourceVector(shaderResources.storage_buffers, Reflected.StorageBuffers, activeVariableIds, true);
 
         PrintReflection(Reflected);
     }
@@ -408,14 +476,12 @@ public:
                                        shaderc_include_type eShaderIncludeType,
                                        const char* pszRequestingSource,
                                        size_t includeDepth) {
-        apemode_memory_allocation_scope;
-
         auto userData = apemode::make_unique<UserData>();
         if (userData && pIncludedFiles &&
             FileReader.ReadShaderTxtFile(pszRequestedSource, userData->Path, userData->Content)) {
             pIncludedFiles->InsertIncludedFile(userData->Path);
 
-            auto includeResult = apemode::make_unique<shaderc_include_result>();
+            auto includeResult = std::make_unique<shaderc_include_result>();
             includeResult->content = userData->Content.data();
             includeResult->content_length = userData->Content.size();
             includeResult->source_name = userData->Path.data();
@@ -429,9 +495,8 @@ public:
 
     // Handles shaderc_include_result_release_fn callbacks.
     void ReleaseInclude(shaderc_include_result* data) {
-        apemode_memory_allocation_scope;
-        apemode_delete(((UserData*&)data->user_data));
-        apemode_delete(data);
+        delete ((UserData*&)data->user_data);
+        delete data;
     }
 };
 
@@ -445,11 +510,11 @@ public:
 
     /* @note No files, only ready to compile shader sources */
 
-    apemode::unique_ptr<ICompiledShader> Compile(const std::string& ShaderName,
-                                                 const std::string& ShaderCode,
-                                                 const IMacroDefinitionCollection* pMacros,
-                                                 ShaderType eShaderKind,
-                                                 EShaderOptimizationType eShaderOptimization) const override;
+    std::unique_ptr<ICompiledShader> Compile(const std::string& ShaderName,
+                                             const std::string& ShaderCode,
+                                             const IMacroDefinitionCollection* pMacros,
+                                             ShaderType eShaderKind,
+                                             EShaderOptimizationType eShaderOptimization) const override;
 
     /* @note Compiling from source files */
 
@@ -458,11 +523,11 @@ public:
     void SetShaderFileReader(IShaderFileReader* pShaderFileReader) override;
     void SetShaderFeedbackWriter(IShaderFeedbackWriter* pShaderFeedbackWriter) override;
 
-    apemode::unique_ptr<ICompiledShader> Compile(const std::string& FilePath,
-                                                 const IMacroDefinitionCollection* pMacros,
-                                                 ShaderType eShaderKind,
-                                                 EShaderOptimizationType eShaderOptimization,
-                                                 IIncludedFileSet* pOutIncludedFiles) const override;
+    std::unique_ptr<ICompiledShader> Compile(const std::string& FilePath,
+                                             const IMacroDefinitionCollection* pMacros,
+                                             ShaderType eShaderKind,
+                                             EShaderOptimizationType eShaderOptimization,
+                                             IIncludedFileSet* pOutIncludedFiles) const override;
 
 private:
     shaderc::Compiler Compiler;
@@ -484,7 +549,7 @@ void ShaderCompiler::SetShaderFeedbackWriter(IShaderFeedbackWriter* pInShaderFee
     pShaderFeedbackWriter = pInShaderFeedbackWriter;
 }
 
-static apemode::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
+static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     const std::string& shaderName,
     const std::string& shaderContent,
     const IShaderCompiler::IMacroDefinitionCollection* pMacros,
@@ -494,8 +559,6 @@ static apemode::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     const shaderc::Compiler* pCompiler,
     ShaderCompiler::IShaderFeedbackWriter* pShaderFeedbackWriter) {
     using namespace apemode::shp;
-    apemode_memory_allocation_scope;
-
     if (nullptr == pCompiler) { return nullptr; }
 
     shaderc::PreprocessedSourceCompilationResult preprocessedSourceCompilationResult =
@@ -518,8 +581,6 @@ static apemode::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     }
 
     if (nullptr != pShaderFeedbackWriter) {
-        // apemode::LogInfo("ShaderCompiler: Preprocessed GLSL.");
-
         pShaderFeedbackWriter->WriteFeedback(ShaderCompiler::IShaderFeedbackWriter::eFeedback_PreprocessingSucceeded,
                                              shaderName,
                                              pMacros,
@@ -581,8 +642,6 @@ static apemode::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     }
 
     if (nullptr != pShaderFeedbackWriter) {
-        // apemode::LogInfo("ShaderCompiler: Compiled GLSL to SPV.");
-
         pShaderFeedbackWriter->WriteFeedback(ShaderCompiler::IShaderFeedbackWriter::eFeedback_SpvSucceeded,
                                              shaderName,
                                              pMacros,
@@ -590,20 +649,15 @@ static apemode::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
                                              spvCompilationResult.cend());
     }
 
-    apemode::vector<uint32_t> dwords(spvCompilationResult.cbegin(), spvCompilationResult.cend());
+    std::vector<uint32_t> dwords(spvCompilationResult.cbegin(), spvCompilationResult.cend());
+    std::string preprocessedSrc(preprocessedSourceCompilationResult.cbegin(), preprocessedSourceCompilationResult.cend());
+    std::string assemblySrc(assemblyCompilationResult.cbegin(), assemblyCompilationResult.cend());
 
-    apemode::string8 preprocessedSrc(preprocessedSourceCompilationResult.cbegin(),
-                                     preprocessedSourceCompilationResult.cend());
-
-    apemode::string8 assemblySrc(assemblyCompilationResult.cbegin(), assemblyCompilationResult.cend());
-
-    ICompiledShader* pCompiledShader =
-        apemode_new CompiledShader(std::move(dwords), std::move(preprocessedSrc), std::move(assemblySrc));
-
-    return apemode::unique_ptr<ICompiledShader>(pCompiledShader);
+    auto pCompiledShader = new CompiledShader(std::move(dwords), std::move(preprocessedSrc), std::move(assemblySrc));
+    return std::unique_ptr<ICompiledShader>(pCompiledShader);
 }
 
-apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
+std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     const std::string& shaderName,
     const std::string& shaderContent,
     const IMacroDefinitionCollection* pMacros,
@@ -616,11 +670,10 @@ apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     options.SetOptimizationLevel(shaderc_optimization_level(eShaderOptimization));
     options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
 
-    return InternalCompile(
-        shaderName, shaderContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
+    return InternalCompile(shaderName, shaderContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
 }
 
-apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
+std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     const std::string& InFilePath,
     const IMacroDefinitionCollection* pMacros,
     const ShaderType eShaderKind,
@@ -654,8 +707,7 @@ apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     // apemode::LogInfo("ShaderCompiler: Compiling {}", InFilePath);
 
     if (pShaderFileReader->ReadShaderTxtFile(InFilePath, fullPath, fileContent)) {
-        auto compiledShader = InternalCompile(
-            fullPath, fileContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
+        auto compiledShader = InternalCompile(fullPath, fileContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
         if (compiledShader) {
             pOutIncludedFiles->InsertIncludedFile(fullPath);
             return compiledShader;
@@ -665,6 +717,6 @@ apemode::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     return nullptr;
 }
 
-apemode::unique_ptr<IShaderCompiler> apemode::shp::NewShaderCompiler() {
-    return apemode::unique_ptr<IShaderCompiler>(apemode_new ShaderCompiler{});
+std::unique_ptr<IShaderCompiler> apemode::shp::NewShaderCompiler() {
+    return std::unique_ptr<IShaderCompiler>(new ShaderCompiler{});
 }
