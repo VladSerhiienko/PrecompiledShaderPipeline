@@ -42,43 +42,43 @@ constexpr std::string_view ToString(spirv_cross::SPIRType::BaseType bt) {
 }
 constexpr ReflectedPrimitiveType Reflect(spirv_cross::SPIRType::BaseType bt) {
     switch (bt) { // clang-format off
-        case spirv_cross::SPIRType::Struct: return eReflectedPrimitiveType_Struct;
-        case spirv_cross::SPIRType::Boolean: return eReflectedPrimitiveType_Bool;
-        case spirv_cross::SPIRType::Char: return eReflectedPrimitiveType_Char;
-        case spirv_cross::SPIRType::SByte: return eReflectedPrimitiveType_Char;
-        case spirv_cross::SPIRType::UByte: return eReflectedPrimitiveType_UChar;
-        case spirv_cross::SPIRType::Short: return eReflectedPrimitiveType_Short;
-        case spirv_cross::SPIRType::UShort: return eReflectedPrimitiveType_UShort;
-        case spirv_cross::SPIRType::Int: return eReflectedPrimitiveType_Int;
-        case spirv_cross::SPIRType::UInt: return eReflectedPrimitiveType_UInt;
-        case spirv_cross::SPIRType::Int64: return eReflectedPrimitiveType_Long;
-        case spirv_cross::SPIRType::UInt64: return eReflectedPrimitiveType_ULong;
-        case spirv_cross::SPIRType::Half: return eReflectedPrimitiveType_Half;
-        case spirv_cross::SPIRType::Float: return eReflectedPrimitiveType_Float;
-        case spirv_cross::SPIRType::Double: return eReflectedPrimitiveType_Double;
-        case spirv_cross::SPIRType::Image: return eReflectedPrimitiveType_Image;
-        case spirv_cross::SPIRType::SampledImage: return eReflectedPrimitiveType_SampledImage;
-        case spirv_cross::SPIRType::Sampler: return eReflectedPrimitiveType_Sampler;
-        case spirv_cross::SPIRType::AtomicCounter: return eReflectedPrimitiveType_AtomicCounter;
-        case spirv_cross::SPIRType::AccelerationStructureNV: return eReflectedPrimitiveType_AccelerationStructure;
-        case spirv_cross::SPIRType::ControlPointArray: return eReflectedPrimitiveType_ControlPointArray;
-        default: assert(false); return eReflectedPrimitiveTypeError;
+        case spirv_cross::SPIRType::Struct: return ReflectedPrimitiveType::Struct;
+        case spirv_cross::SPIRType::Boolean: return ReflectedPrimitiveType::Bool;
+        case spirv_cross::SPIRType::Char: return ReflectedPrimitiveType::Char;
+        case spirv_cross::SPIRType::SByte: return ReflectedPrimitiveType::Char;
+        case spirv_cross::SPIRType::UByte: return ReflectedPrimitiveType::UChar;
+        case spirv_cross::SPIRType::Short: return ReflectedPrimitiveType::Short;
+        case spirv_cross::SPIRType::UShort: return ReflectedPrimitiveType::UShort;
+        case spirv_cross::SPIRType::Int: return ReflectedPrimitiveType::Int;
+        case spirv_cross::SPIRType::UInt: return ReflectedPrimitiveType::UInt;
+        case spirv_cross::SPIRType::Int64: return ReflectedPrimitiveType::Long;
+        case spirv_cross::SPIRType::UInt64: return ReflectedPrimitiveType::ULong;
+        case spirv_cross::SPIRType::Half: return ReflectedPrimitiveType::Half;
+        case spirv_cross::SPIRType::Float: return ReflectedPrimitiveType::Float;
+        case spirv_cross::SPIRType::Double: return ReflectedPrimitiveType::Double;
+        case spirv_cross::SPIRType::Image: return ReflectedPrimitiveType::Image;
+        case spirv_cross::SPIRType::SampledImage: return ReflectedPrimitiveType::SampledImage;
+        case spirv_cross::SPIRType::Sampler: return ReflectedPrimitiveType::Sampler;
+        case spirv_cross::SPIRType::AtomicCounter: return ReflectedPrimitiveType::AtomicCounter;
+        case spirv_cross::SPIRType::AccelerationStructureNV: return ReflectedPrimitiveType::AccelerationStructure;
+        case spirv_cross::SPIRType::ControlPointArray: return ReflectedPrimitiveType::ControlPointArray;
+        default: assert(false); return ReflectedPrimitiveType::Error;
     }; // clang-format on
 }
 constexpr size_t PrimitiveTypeSize(ReflectedPrimitiveType primitiveType) {
     switch (primitiveType) { // clang-format off
-        case eReflectedPrimitiveType_Bool: return 1;
-        case eReflectedPrimitiveType_Char: return 1;
-        case eReflectedPrimitiveType_UChar: return 1;
-        case eReflectedPrimitiveType_Short: return 2;
-        case eReflectedPrimitiveType_UShort: return 2;
-        case eReflectedPrimitiveType_Int: return 4;
-        case eReflectedPrimitiveType_UInt: return 4;
-        case eReflectedPrimitiveType_Long: return 8;
-        case eReflectedPrimitiveType_ULong: return 8;
-        case eReflectedPrimitiveType_Half: return 2;
-        case eReflectedPrimitiveType_Float: return 4;
-        case eReflectedPrimitiveType_Double: return 8;
+        case ReflectedPrimitiveType::Bool: return 1;
+        case ReflectedPrimitiveType::Char: return 1;
+        case ReflectedPrimitiveType::UChar: return 1;
+        case ReflectedPrimitiveType::Short: return 2;
+        case ReflectedPrimitiveType::UShort: return 2;
+        case ReflectedPrimitiveType::Int: return 4;
+        case ReflectedPrimitiveType::UInt: return 4;
+        case ReflectedPrimitiveType::Long: return 8;
+        case ReflectedPrimitiveType::ULong: return 8;
+        case ReflectedPrimitiveType::Half: return 2;
+        case ReflectedPrimitiveType::Float: return 4;
+        case ReflectedPrimitiveType::Double: return 8;
         default: return 0;
     }; // clang-format on
 }
@@ -276,7 +276,7 @@ public:
         reflectedType.ElementPrimitiveType = Reflect(type.basetype);
 
         // clang-format off
-        if (reflectedType.ElementPrimitiveType == eReflectedPrimitiveType_Struct) {
+        if (reflectedType.ElementPrimitiveType == ReflectedPrimitiveType::Struct) {
             reflectedType.ElementByteSize = Reflection.get_declared_struct_size(type);
         } else {
             reflectedType.ElementByteSize = PrimitiveTypeSize(reflectedType.ElementPrimitiveType) *
@@ -299,7 +299,7 @@ public:
         reflectedType.ArrayByteStride = reflectedType.ElementByteSize;
         reflectedType.EffectiveByteSize = reflectedType.ArrayLength * reflectedType.ArrayByteStride;
 
-        if (reflectedType.ElementPrimitiveType == eReflectedPrimitiveType_Struct) {
+        if (reflectedType.ElementPrimitiveType == ReflectedPrimitiveType::Struct) {
             const size_t member_count = type.member_types.size();
             reflectedType.Members.resize(member_count);
             for (size_t i = 0; i < member_count; i++) { ReflectMemberType(type, reflectedType, i); }
@@ -339,7 +339,7 @@ public:
     }
 
     void ReflectResourceActiveRanges(const spirv_cross::Resource& resource, ReflectedResource& reflectedResource) {
-        if (reflectedResource.Type.ElementPrimitiveType != eReflectedPrimitiveType_Struct) { return; }
+        if (reflectedResource.Type.ElementPrimitiveType != ReflectedPrimitiveType::Struct) { return; }
         auto activeRanges = Reflection.get_active_buffer_ranges(resource.id);
         if (!activeRanges.empty()) {
             // clang-format off
@@ -520,7 +520,7 @@ public:
                                              const std::string& shaderCode,
                                              const IMacroDefinitionCollection* pMacros,
                                              ShaderType shaderType,
-                                             EShaderOptimizationType optimizationType) const override;
+                                             ShaderOptimizationType optimizationType) const override;
 
     /* @note Compiling from source files */
 
@@ -532,7 +532,7 @@ public:
     std::unique_ptr<ICompiledShader> Compile(const std::string& FilePath,
                                              const IMacroDefinitionCollection* pMacros,
                                              ShaderType shaderType,
-                                             EShaderOptimizationType optimizationType,
+                                             ShaderOptimizationType optimizationType,
                                              IIncludedFileSet* pOutIncludedFiles) const override;
 
 private:
@@ -668,7 +668,7 @@ std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     const std::string& shaderContent,
     const IMacroDefinitionCollection* pMacros,
     const ShaderType shaderType,
-    const EShaderOptimizationType optimizationType) const {
+    const ShaderOptimizationType optimizationType) const {
     shaderc::CompileOptions options;
     options.SetSourceLanguage(shaderc_source_language_glsl);
     options.SetOptimizationLevel(shaderc_optimization_level(optimizationType));
@@ -682,7 +682,7 @@ std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
 std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(const std::string& filePath,
                                                                        const IMacroDefinitionCollection* pMacros,
                                                                        const ShaderType shaderType,
-                                                                       const EShaderOptimizationType optimizationType,
+                                                                       const ShaderOptimizationType optimizationType,
                                                                        IIncludedFileSet* pOutIncludedFiles) const {
     // apemode::LogInfo("ShaderCompiler: Compiling {}", InFilePath);
 

@@ -11,27 +11,27 @@
 namespace apemode {
 namespace shp {
 
-enum ReflectedPrimitiveType {
-    eReflectedPrimitiveType_Struct,
-    eReflectedPrimitiveType_Bool,
-    eReflectedPrimitiveType_Char,
-    eReflectedPrimitiveType_Short,
-    eReflectedPrimitiveType_Int,
-    eReflectedPrimitiveType_Long,
-    eReflectedPrimitiveType_UChar,
-    eReflectedPrimitiveType_UShort,
-    eReflectedPrimitiveType_UInt,
-    eReflectedPrimitiveType_ULong,
-    eReflectedPrimitiveType_Half,
-    eReflectedPrimitiveType_Float,
-    eReflectedPrimitiveType_Double,
-    eReflectedPrimitiveType_Image,
-    eReflectedPrimitiveType_Sampler,
-    eReflectedPrimitiveType_SampledImage,
-    eReflectedPrimitiveType_AtomicCounter,
-    eReflectedPrimitiveType_AccelerationStructure,
-    eReflectedPrimitiveType_ControlPointArray,
-    eReflectedPrimitiveTypeError,
+enum class ReflectedPrimitiveType {
+    Struct,
+    Bool,
+    Char,
+    Short,
+    Int,
+    Long,
+    UChar,
+    UShort,
+    UInt,
+    ULong,
+    Half,
+    Float,
+    Double,
+    Image,
+    Sampler,
+    SampledImage,
+    AtomicCounter,
+    AccelerationStructure,
+    ControlPointArray,
+    Error,
 };
 
 struct ReflectedStructMember;
@@ -42,7 +42,7 @@ struct ReflectedType {
     ~ReflectedType();
 
     std::string Name = "";
-    ReflectedPrimitiveType ElementPrimitiveType = eReflectedPrimitiveTypeError;
+    ReflectedPrimitiveType ElementPrimitiveType = ReflectedPrimitiveType::Error;
     uint32_t ElementByteSize = 0;
     uint32_t ElementVectorLength = 0;
     uint32_t ElementColumnCount = 0;
@@ -238,10 +238,10 @@ public:
     };
 
     /* Copy-paste from shaderc */
-    enum EShaderOptimizationType {
-        eShaderOptimization_None,        // no optimization
-        eShaderOptimization_Size,        // optimize towards reducing code size
-        eShaderOptimization_Performance, // optimize towards performance
+    enum ShaderOptimizationType {
+        None,        // no optimization
+        Size,        // optimize towards reducing code size
+        Performance, // optimize towards performance
     };
 
     virtual ~IShaderCompiler() = default;
@@ -251,8 +251,8 @@ public:
     virtual std::unique_ptr<ICompiledShader> Compile(const std::string& shaderName,
                                                      const std::string& sourceCode,
                                                      const IMacroDefinitionCollection* pMacros,
-                                                     ShaderType eShaderKind,
-                                                     EShaderOptimizationType eShaderOptimization) const = 0;
+                                                     ShaderType shaderType,
+                                                     ShaderOptimizationType optimizationType) const = 0;
 
     /* @note Compiling from source files */
 
@@ -263,8 +263,8 @@ public:
 
     virtual std::unique_ptr<ICompiledShader> Compile(const std::string& filePath,
                                                      const IMacroDefinitionCollection* pMacros,
-                                                     ShaderType eShaderKind,
-                                                     EShaderOptimizationType eShaderOptimization,
+                                                     ShaderType shaderType,
+                                                     ShaderOptimizationType optimizationType,
                                                      IIncludedFileSet* pOutIncludedFiles) const = 0;
 };
 
