@@ -118,18 +118,18 @@ inline const char *EnumNameDecorationValue(DecorationValue e) {
 enum ArrayLength {
   ArrayLength_Undefined = 0,
   ArrayLength_Default = 1,
-  ArrayLength_ValueBits = 2147483647,
-  ArrayLength_IsStaticBit = 2147483648,
+  ArrayLength_ValueBitMask = 2147483647,
+  ArrayLength_IsStaticBitMask = 2147483648,
   ArrayLength_MIN = ArrayLength_Undefined,
-  ArrayLength_MAX = ArrayLength_IsStaticBit
+  ArrayLength_MAX = ArrayLength_IsStaticBitMask
 };
 
 inline const ArrayLength (&EnumValuesArrayLength())[4] {
   static const ArrayLength values[] = {
     ArrayLength_Undefined,
     ArrayLength_Default,
-    ArrayLength_ValueBits,
-    ArrayLength_IsStaticBit
+    ArrayLength_ValueBitMask,
+    ArrayLength_IsStaticBitMask
   };
   return values;
 }
@@ -138,8 +138,8 @@ inline const char *EnumNameArrayLength(ArrayLength e) {
   switch (e) {
     case ArrayLength_Undefined: return "Undefined";
     case ArrayLength_Default: return "Default";
-    case ArrayLength_ValueBits: return "ValueBits";
-    case ArrayLength_IsStaticBit: return "IsStaticBit";
+    case ArrayLength_ValueBitMask: return "ValueBitMask";
+    case ArrayLength_IsStaticBitMask: return "IsStaticBitMask";
     default: return "";
   }
 }
@@ -367,22 +367,22 @@ FLATBUFFERS_STRUCT_END(ReflectedStructMember, 20);
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) MemoryRange FLATBUFFERS_FINAL_CLASS {
  private:
-  uint32_t offset_;
-  uint32_t size_;
+  uint32_t byte_offset_;
+  uint32_t byte_size_;
 
  public:
   MemoryRange() {
     memset(static_cast<void *>(this), 0, sizeof(MemoryRange));
   }
-  MemoryRange(uint32_t _offset, uint32_t _size)
-      : offset_(flatbuffers::EndianScalar(_offset)),
-        size_(flatbuffers::EndianScalar(_size)) {
+  MemoryRange(uint32_t _byte_offset, uint32_t _byte_size)
+      : byte_offset_(flatbuffers::EndianScalar(_byte_offset)),
+        byte_size_(flatbuffers::EndianScalar(_byte_size)) {
   }
-  uint32_t offset() const {
-    return flatbuffers::EndianScalar(offset_);
+  uint32_t byte_offset() const {
+    return flatbuffers::EndianScalar(byte_offset_);
   }
-  uint32_t size() const {
-    return flatbuffers::EndianScalar(size_);
+  uint32_t byte_size() const {
+    return flatbuffers::EndianScalar(byte_size_);
   }
 };
 FLATBUFFERS_STRUCT_END(MemoryRange, 8);

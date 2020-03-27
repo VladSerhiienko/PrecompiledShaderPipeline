@@ -18,8 +18,8 @@ enum DecorationValue : uint {
 enum ArrayLength : uint {
     Undefined = 0,
     Default = 1,
-	ValueBits = 0x7fffffff,
-	IsStaticBit = 0x80000000,
+	ValueBitMask = 0x7fffffff,
+	IsStaticBitMask = 0x80000000,
 }
 
 enum ReflectedConstantBit : uint {
@@ -107,8 +107,8 @@ table ReflectedType {
 }
 
 struct MemoryRange {
-    offset : uint;
-    size : uint;
+    byte_offset : uint;
+    byte_size : uint;
 }
 
 table ReflectedResourceState {

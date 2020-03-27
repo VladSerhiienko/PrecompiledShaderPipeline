@@ -195,8 +195,8 @@ struct CompiledShaderCollection {
             flatbuffers::Offset<flatbuffers::Vector<const cso::ReflectedStructMember*>> reflectedStructMembersOffset = 0;
             reflectedStructMembersOffset = fbb.CreateVectorOfStructs(reflectedStructMembers.data(), reflectedStructMembers.size());
 
-            uint32_t arrayLength = reflectedType.ArrayLength & cso::ArrayLength_ValueBits;
-            arrayLength |= reflectedType.bIsArrayLengthStatic ? cso::ArrayLength_IsStaticBit : 0;
+            uint32_t arrayLength = reflectedType.ArrayLength & cso::ArrayLength_ValueBitMask;
+            arrayLength |= reflectedType.bIsArrayLengthStatic ? cso::ArrayLength_IsStaticBitMask : 0;
 
             reflectedTypeOffsets.push_back(cso::CreateReflectedType(fbb,
                                                                     reflectedType.NameIndex,
