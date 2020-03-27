@@ -1,29 +1,18 @@
 
-#include "ShaderCompiler.Vulkan.h"
-#include "cso_generated.h"
-
 #include <apemode/platform/AppState.h>
 #include <apemode/platform/CityHash.h>
 #include <apemode/platform/shared/AssetManager.h>
-
 #include <flatbuffers/util.h>
-#include <nlohmann/json.hpp>
 
 #include <iterator>
+#include <nlohmann/json.hpp>
+
+#include "ShaderCompiler.Vulkan.h"
+#include "cso_generated.h"
 
 using json = nlohmann::json;
 
 namespace {
-struct UniqueString {
-    uint64_t Hash = 0;
-    std::string Contents = "";
-};
-
-struct UniqueBuffer {
-    uint64_t Hash = 0;
-    std::vector<uint8_t> Contents = {};
-};
-
 struct CompiledShaderVariant {
     CompiledShaderVariant() = default;
     CompiledShaderVariant(CompiledShaderVariant&&) noexcept = default;
@@ -43,8 +32,19 @@ struct CompiledShaderVariant {
     std::map<std::string, std::string> DefinitionMap = {};
 };
 
-struct HashedCompiledShader {
+struct Hashed {
     uint64_t Hash = 0;
+};
+
+struct UniqueString : Hashed {
+    std::string Contents = "";
+};
+
+struct UniqueBuffer : Hashed {
+    std::vector<uint8_t> Contents = {};
+};
+
+struct HashedCompiledShader : Hashed {
     uint32_t PreprocessedIndex = 0;
     uint32_t AssemblyIndex = 0;
     uint32_t CompiledIndex = 0;
@@ -53,8 +53,7 @@ struct HashedCompiledShader {
     uint32_t ReflectedIndex = 0;
 };
 
-struct HashedCompiledShaderInfo {
-    uint64_t Hash = 0;
+struct HashedCompiledShaderInfo : Hashed {
     uint32_t AssetIndex = 0;
     uint32_t CompiledShaderIndex = 0;
     uint32_t DefinitionsIndex = 0;
@@ -71,8 +70,7 @@ struct HashedReflectedTypeMember {
     uint32_t OccupiedByteSize = 0;
 };
 
-struct HashedReflectedType {
-    uint64_t Hash = 0;
+struct HashedReflectedType : Hashed {
     uint32_t NameIndex = 0;
     cso::ReflectedPrimitiveType ElementPrimitiveType = cso::ReflectedPrimitiveType::ReflectedPrimitiveType_MAX;
     uint32_t ElementByteSize = 0;
@@ -86,14 +84,12 @@ struct HashedReflectedType {
     std::vector<HashedReflectedTypeMember> MemberTypes = {};
 };
 
-struct HashedReflectedResourceState {
-    uint64_t Hash = 0;
+struct HashedReflectedResourceState : Hashed {
     bool bIsActive = false;
     std::vector<std::pair<uint32_t, uint32_t>> ActiveRanges = {};
 };
 
-struct HashedReflectedResource {
-    uint64_t Hash = 0;
+struct HashedReflectedResource : Hashed {
     uint32_t NameIndex = 0;
     uint32_t TypeIndex = 0;
     uint32_t DescriptorSet = 0;
@@ -101,8 +97,7 @@ struct HashedReflectedResource {
     uint32_t Locaton = 0;
 };
 
-struct HashedReflectedConstant {
-    uint64_t Hash = 0;
+struct HashedReflectedConstant : Hashed {
     uint32_t NameIndex = 0;
     uint32_t MacroIndex = 0;
     uint64_t DefaultScalarU64 = 0;
@@ -113,8 +108,7 @@ struct HashedReflectedConstant {
     bool bIsUsedAsLUT = false;
 };
 
-struct HashedReflectedShader {
-    uint64_t Hash = 0;
+struct HashedReflectedShader : Hashed {
     uint32_t NameIndex = 0;
     std::vector<uint32_t> ConstantIndices = {};
     std::vector<uint32_t> StageInputIndices = {};
@@ -157,7 +151,7 @@ struct CompiledShaderCollection {
         flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<cso::CompiledShaderInfo>>> compiledShaderInfosOffset = 0;
         flatbuffers::Offset<flatbuffers::Vector<const cso::CompiledShader*>> compiledShadersOffset = 0;
         // clang-format on
-        
+
         apemode::LogInfo("+ {} buffers", uniqueBuffers.size());
         apemode::LogInfo("+ {} string", uniqueStrings.size());
         apemode::LogInfo("+ {} compiled shaders", uniqueCompiledShaders.size());
@@ -240,13 +234,10 @@ struct CompiledShaderCollection {
             if (c.bIsSpecialization) { bits |= cso::ReflectedConstantBit_IsSpecializationBit; }
             if (c.bIsUsedAsArrayLength) { bits |= cso::ReflectedConstantBit_IsUsedAsArrayLengthBit; }
             if (c.bIsUsedAsLUT) { bits |= cso::ReflectedConstantBit_IsUsedAsLUT; }
-            
-            reflectedConstants.push_back(cso::ReflectedConstant(c.NameIndex,
-                                                                c.MacroIndex,
-                                                                c.DefaultScalarU64,
-                                                                c.ConstantId,
-                                                                c.TypeIndex,
-                                                                bits));
+
+            // clang-format off
+            reflectedConstants.push_back(cso::ReflectedConstant(c.NameIndex, c.MacroIndex, c.DefaultScalarU64, c.ConstantId, c.TypeIndex, bits));
+            // clang-format on
         }
 
         reflectedConstantsOffset = fbb.CreateVectorOfStructs(reflectedConstants.data(), reflectedConstants.size());
@@ -307,13 +298,14 @@ struct CompiledShaderCollection {
                 compiledShaderInfo.IncludedFileIndices.data(), compiledShaderInfo.IncludedFileIndices.size());
             flatbuffers::Offset<flatbuffers::Vector<uint32_t>> definitionsOffset = fbb.CreateVector(
                 compiledShaderInfo.DefinitionIndices.data(), compiledShaderInfo.DefinitionIndices.size());
-            compiledShaderInfoOffsets.push_back(cso::CreateCompiledShaderInfo(fbb,
-                                                                              cso::Shader(compiledShaderInfo.ShaderType),
-                                                                              compiledShaderInfo.CompiledShaderIndex,
-                                                                              compiledShaderInfo.AssetIndex,
-                                                                              compiledShaderInfo.DefinitionsIndex,
-                                                                              definitionsOffset,
-                                                                              includedFilesOffset));
+            compiledShaderInfoOffsets.push_back(
+                cso::CreateCompiledShaderInfo(fbb,
+                                              cso::Shader(compiledShaderInfo.ShaderType),
+                                              compiledShaderInfo.CompiledShaderIndex,
+                                              compiledShaderInfo.AssetIndex,
+                                              compiledShaderInfo.DefinitionsIndex,
+                                              definitionsOffset,
+                                              includedFilesOffset));
         }
 
         compiledShaderInfosOffset =
@@ -344,72 +336,84 @@ struct CompiledShaderCollection {
             compiledShader.AssemblyIndex = GetStringIndex(cso.Assembly);
             compiledShader.PreprocessedIndex = GetStringIndex(cso.Preprocessed);
             compiledShader.ReflectedIndex = GetReflectedShaderIndex(GetHashedReflectionShader(cso.Reflected));
-
             compiledShader.Hash = uniqueBuffers[compiledShader.CompiledIndex].Hash;
 
-            uint32_t compiledShaderIndex = GetCompiledShaderIndex(compiledShader);
+            const uint32_t compiledShaderIndex = GetCompiledShaderIndex(compiledShader);
 
             apemode::CityHash64Wrapper city64 = {};
             HashedCompiledShaderInfo compiledShaderInfo = {};
 
             compiledShaderInfo.CompiledShaderIndex = compiledShaderIndex;
             compiledShaderInfo.AssetIndex = GetStringIndex(cso.Asset);
-            compiledShaderInfo.ShaderType = cso.Type;
             compiledShaderInfo.DefinitionsIndex = GetStringIndex(cso.Definitions);
-
-            city64.CombineWith(compiledShaderInfo.CompiledShaderIndex);
-            city64.CombineWith(compiledShaderInfo.AssetIndex);
+            compiledShaderInfo.ShaderType = cso.Type;
+            
             city64.CombineWith(compiledShaderInfo.ShaderType);
-            city64.CombineWith(compiledShaderInfo.DefinitionsIndex);
+            city64.CombineWith(uniqueCompiledShaders[compiledShaderInfo.CompiledShaderIndex].Hash);
+            city64.CombineWith(GetStringHash(compiledShaderInfo.AssetIndex));
+            city64.CombineWith(GetStringHash(compiledShaderInfo.DefinitionsIndex));
 
             for (auto& includedFile : cso.IncludedFiles) {
-                compiledShaderInfo.IncludedFileIndices.push_back(GetStringIndex(includedFile));
-                city64.CombineWith(compiledShaderInfo.IncludedFileIndices.back());
+                const uint32_t stringIndex = GetStringIndex(includedFile);
+                city64.CombineWith(GetStringHash(stringIndex));
+                compiledShaderInfo.IncludedFileIndices.push_back(stringIndex);
             }
 
             for (auto& definitionPair : cso.DefinitionMap) {
-                compiledShaderInfo.DefinitionIndices.push_back(GetStringIndex(definitionPair.first));
-                city64.CombineWith(compiledShaderInfo.DefinitionIndices.back());
-
-                compiledShaderInfo.DefinitionIndices.push_back(GetStringIndex(definitionPair.second));
-                city64.CombineWith(compiledShaderInfo.DefinitionIndices.back());
+                const uint32_t stringIndex0 = GetStringIndex(definitionPair.first);
+                const uint32_t stringIndex1 = GetStringIndex(definitionPair.second);
+                city64.CombineWith(GetStringHash(stringIndex0));
+                city64.CombineWith(GetStringHash(stringIndex1));
+                compiledShaderInfo.DefinitionIndices.push_back(stringIndex0);
+                compiledShaderInfo.DefinitionIndices.push_back(stringIndex1);
             }
 
             compiledShaderInfo.Hash = city64.Value;
-            AddCompiledShaderInfoIndex(compiledShaderInfo);
+            GetCompiledShaderInfoIndex(compiledShaderInfo);
         }
     }
 
     // clang-format off
-    void AddCompiledShaderInfoIndex(const HashedCompiledShaderInfo& compiledShaderInfo) {
-        auto it = std::find_if(uniqueCompiledShaderInfos.begin(), uniqueCompiledShaderInfos.end(), [compiledShaderInfo](const HashedCompiledShaderInfo& existingCompiledShaderInfo) { return existingCompiledShaderInfo.Hash == compiledShaderInfo.Hash; });
-        if (it == uniqueCompiledShaderInfos.end()) { uniqueCompiledShaderInfos.push_back(compiledShaderInfo); }
+    template <typename T>
+    static uint32_t TAddIfMissingAndGetIndexByHash(std::vector<T>& existingReflectedItems, const T& reflectedItem) {
+        static_assert(std::is_base_of<Hashed, T>::value, "Caught T without a hash field.");
+        const auto it = std::find_if(existingReflectedItems.cbegin(), existingReflectedItems.cend(), [reflectedItem](const T& existingItem) { return existingItem.Hash == reflectedItem.Hash; });
+        if (it != existingReflectedItems.end()) { return std::distance(existingReflectedItems.cbegin(), it); }
+        const uint32_t index = existingReflectedItems.size();
+        existingReflectedItems.push_back(reflectedItem);
+        return index;
     }
-    HashedReflectedResourceState GetHashedReflectedResourceState(const apemode::shp::ReflectedResource& reflectedResource) {
+    
+    uint64_t GetStringHash(const uint32_t index) { return uniqueStrings[index].Hash; }
+    uint64_t GetTypeHash(const uint32_t index) { return uniqueReflectedTypes[index].Hash; }
+    // clang-format on
+
+    uint32_t GetCompiledShaderInfoIndex(const HashedCompiledShaderInfo& reflected) {
+        return TAddIfMissingAndGetIndexByHash(uniqueCompiledShaderInfos, reflected);
+    }
+    HashedReflectedResourceState GetHashedReflectedResourceState(
+        const apemode::shp::ReflectedResource& reflectedResource) {
         HashedReflectedResourceState reflectedState = {};
-        
+
         reflectedState.bIsActive = reflectedResource.bIsActive;
         reflectedState.ActiveRanges.reserve(reflectedResource.ActiveRanges.size());
-        
+
         // clang-format off
         std::transform(reflectedResource.ActiveRanges.begin(),
-                       reflectedResource.ActiveRanges.end(), std::back_inserter(reflectedState.ActiveRanges),
+                       reflectedResource.ActiveRanges.end(),
+                       std::back_inserter(reflectedState.ActiveRanges),
                        [](apemode::shp::ReflectedMemoryRange r) { return std::make_pair(r.offset, r.size); });
         // clang-format on
 
         apemode::CityHash64Wrapper city64 = {};
         city64.CombineWithArray(&*reflectedResource.ActiveRanges.begin(), &*reflectedResource.ActiveRanges.end());
         city64.CombineWith(reflectedState.bIsActive);
-        
+
         reflectedState.Hash = city64.Value;
         return reflectedState;
     }
     uint32_t GetReflectedResourceStateIndex(const HashedReflectedResourceState& reflected) {
-        auto it = std::find_if(uniqueReflectedResourceStates.begin(), uniqueReflectedResourceStates.end(), [reflected](const HashedReflectedResourceState& existing) { return existing.Hash == reflected.Hash; });
-        if (it != uniqueReflectedResourceStates.end()) { return std::distance(uniqueReflectedResourceStates.begin(), it); }
-        uint32_t index = uniqueReflectedResourceStates.size();
-        uniqueReflectedResourceStates.push_back(reflected);
-        return index;
+        return TAddIfMissingAndGetIndexByHash(uniqueReflectedResourceStates, reflected);
     }
     HashedReflectedType GetHashedReflectedType(const apemode::shp::ReflectedType& reflectedType) {
         HashedReflectedType hashedReflectedType = {};
@@ -423,10 +427,10 @@ struct CompiledShaderCollection {
         hashedReflectedType.bIsArrayLengthStatic = reflectedType.bIsArrayLengthStatic;
         hashedReflectedType.ArrayByteStride = reflectedType.ArrayByteStride;
         hashedReflectedType.EffectiveByteSize = reflectedType.EffectiveByteSize;
-        
+
         for (auto& reflected_member_type : reflectedType.Members) {
             HashedReflectedType memberHashedType = GetHashedReflectedType(reflected_member_type->Type);
-            
+
             HashedReflectedTypeMember hashedReflectedMemberType = {};
             hashedReflectedMemberType.NameIndex = GetStringIndex(reflected_member_type->Name);
             hashedReflectedMemberType.EffectiveByteSize = reflected_member_type->EffectiveByteSize;
@@ -437,7 +441,7 @@ struct CompiledShaderCollection {
         }
 
         apemode::CityHash64Wrapper city64 = {};
-        city64.CombineWith(hashedReflectedType.NameIndex);
+        city64.CombineWith(GetStringHash(hashedReflectedType.NameIndex));
         city64.CombineWith(hashedReflectedType.ElementPrimitiveType);
         city64.CombineWith(hashedReflectedType.ElementByteSize);
         city64.CombineWith(hashedReflectedType.ElementVectorLength);
@@ -449,8 +453,8 @@ struct CompiledShaderCollection {
         city64.CombineWith(hashedReflectedType.EffectiveByteSize);
 
         for (const auto& members : hashedReflectedType.MemberTypes) {
-            city64.CombineWith(members.NameIndex);
-            city64.CombineWith(members.TypeIndex);
+            city64.CombineWith(GetStringHash(members.NameIndex));
+            city64.CombineWith(GetTypeHash(members.TypeIndex));
             city64.CombineWith(members.ByteOffset);
             city64.CombineWith(members.EffectiveByteSize);
             city64.CombineWith(members.OccupiedByteSize);
@@ -459,43 +463,35 @@ struct CompiledShaderCollection {
         hashedReflectedType.Hash = city64.Value;
         return hashedReflectedType;
     }
-    uint32_t GetReflectedTypeIndex(const HashedReflectedType& reflectedType) {
-        auto it = std::find_if(uniqueReflectedTypes.begin(), uniqueReflectedTypes.end(), [reflectedType](const HashedReflectedType& existingReflectedType) { return existingReflectedType.Hash == reflectedType.Hash; });
-        if (it != uniqueReflectedTypes.end()) { return std::distance(uniqueReflectedTypes.begin(), it); }
-        uint32_t index = uniqueReflectedTypes.size();
-        uniqueReflectedTypes.push_back(reflectedType);
-        return index;
+    uint32_t GetReflectedTypeIndex(const HashedReflectedType& reflected) {
+        return TAddIfMissingAndGetIndexByHash(uniqueReflectedTypes, reflected);
     }
     HashedReflectedResource GetHashedReflectedResource(const apemode::shp::ReflectedResource& reflectedResource) {
         HashedReflectedType hashedType = GetHashedReflectedType(reflectedResource.Type);
-        
+
         HashedReflectedResource hashedReflectedResource = {};
         hashedReflectedResource.NameIndex = GetStringIndex(reflectedResource.Name);
         hashedReflectedResource.TypeIndex = GetReflectedTypeIndex(hashedType);
         hashedReflectedResource.DescriptorSet = reflectedResource.DecorationDescriptorSet;
         hashedReflectedResource.DescriptorBinding = reflectedResource.DecorationBinding;
         hashedReflectedResource.Locaton = reflectedResource.DecorationLocation;
-        
+
         apemode::CityHash64Wrapper city64 = {};
-        city64.CombineWith(hashedReflectedResource.NameIndex);
-        city64.CombineWith(hashedReflectedResource.TypeIndex);
+        city64.CombineWith(GetStringHash(hashedReflectedResource.NameIndex));
+        city64.CombineWith(GetTypeHash(hashedReflectedResource.TypeIndex));
         city64.CombineWith(hashedReflectedResource.DescriptorSet);
         city64.CombineWith(hashedReflectedResource.DescriptorBinding);
         city64.CombineWith(hashedReflectedResource.Locaton);
-        
+
         hashedReflectedResource.Hash = city64.Value;
         return hashedReflectedResource;
     }
-    uint32_t GetReflectedResourceIndex(const HashedReflectedResource& reflectedResource) {
-        auto it = std::find_if(uniqueReflectedResources.begin(), uniqueReflectedResources.end(), [reflectedResource](const HashedReflectedResource& existingReflectedResource) { return existingReflectedResource.Hash == reflectedResource.Hash; });
-        if (it != uniqueReflectedResources.end()) { return std::distance(uniqueReflectedResources.begin(), it); }
-        uint32_t index = uniqueReflectedResources.size();
-        uniqueReflectedResources.push_back(reflectedResource);
-        return index;
+    uint32_t GetReflectedResourceIndex(const HashedReflectedResource& reflected) {
+        return TAddIfMissingAndGetIndexByHash(uniqueReflectedResources, reflected);
     }
     HashedReflectedConstant GetHashedReflectedConstant(const apemode::shp::ReflectedConstant& reflectedConstant) {
         HashedReflectedType hashedType = GetHashedReflectedType(reflectedConstant.Type);
-        
+
         HashedReflectedConstant hashedReflectedConstant = {};
         hashedReflectedConstant.NameIndex = GetStringIndex(reflectedConstant.Name);
         hashedReflectedConstant.MacroIndex = GetStringIndex(reflectedConstant.MacroName);
@@ -505,34 +501,30 @@ struct CompiledShaderCollection {
         hashedReflectedConstant.bIsSpecialization = reflectedConstant.bIsSpecialization;
         hashedReflectedConstant.bIsUsedAsArrayLength = reflectedConstant.bIsUsedAsArrayLength;
         hashedReflectedConstant.bIsUsedAsLUT = reflectedConstant.bIsUsedAsLUT;
-        
+
         apemode::CityHash64Wrapper city64 = {};
-        city64.CombineWith(hashedReflectedConstant.NameIndex);
-        city64.CombineWith(hashedReflectedConstant.MacroIndex);
-        city64.CombineWith(hashedReflectedConstant.TypeIndex);
+        city64.CombineWith(GetStringHash(hashedReflectedConstant.NameIndex));
+        city64.CombineWith(GetStringHash(hashedReflectedConstant.MacroIndex));
+        city64.CombineWith(GetTypeHash(hashedReflectedConstant.TypeIndex));
         city64.CombineWith(hashedReflectedConstant.ConstantId);
         city64.CombineWith(hashedReflectedConstant.DefaultScalarU64);
         city64.CombineWith(hashedReflectedConstant.bIsSpecialization);
         city64.CombineWith(hashedReflectedConstant.bIsUsedAsArrayLength);
         city64.CombineWith(hashedReflectedConstant.bIsUsedAsLUT);
-        
+
         hashedReflectedConstant.Hash = city64.Value;
         return hashedReflectedConstant;
     }
-    uint32_t GetReflectedConstantIndex(const HashedReflectedConstant& reflectedConstant) {
-        auto it = std::find_if(uniqueReflectedConstants.begin(), uniqueReflectedConstants.end(), [reflectedConstant](const HashedReflectedConstant& existingReflectedConstant) { return existingReflectedConstant.Hash == reflectedConstant.Hash; });
-        if (it != uniqueReflectedConstants.end()) { return std::distance(uniqueReflectedConstants.begin(), it); }
-        uint32_t index = uniqueReflectedConstants.size();
-        uniqueReflectedConstants.push_back(reflectedConstant);
-        return index;
+    uint32_t GetReflectedConstantIndex(const HashedReflectedConstant& reflected) {
+        return TAddIfMissingAndGetIndexByHash(uniqueReflectedConstants, reflected);
     }
     HashedReflectedShader GetHashedReflectionShader(const apemode::shp::ReflectedShader& reflectedShader) {
         HashedReflectedShader hashedReflectedShader = {};
         apemode::CityHash64Wrapper city64 = {};
-        
+
         hashedReflectedShader.NameIndex = GetStringIndex(reflectedShader.Name);
-        city64.CombineWith(hashedReflectedShader.NameIndex);
-        
+        city64.CombineWith(GetStringHash(hashedReflectedShader.NameIndex));
+
         for (auto& reflectedConstant : reflectedShader.Constants) {
             HashedReflectedConstant hashedConstant = GetHashedReflectedConstant(reflectedConstant);
             hashedReflectedShader.ConstantIndices.push_back(GetReflectedConstantIndex(hashedConstant));
@@ -552,7 +544,7 @@ struct CompiledShaderCollection {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.UniformBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
-            
+
             HashedReflectedResourceState state = GetHashedReflectedResourceState(reflectedResource);
             hashedReflectedShader.UniformBufferStateIndices.push_back(GetReflectedResourceStateIndex(state));
             city64.CombineWith(hashedResource.Hash);
@@ -561,7 +553,7 @@ struct CompiledShaderCollection {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.PushConstantBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
-            
+
             HashedReflectedResourceState state = GetHashedReflectedResourceState(reflectedResource);
             hashedReflectedShader.UniformBufferStateIndices.push_back(GetReflectedResourceStateIndex(state));
             city64.CombineWith(hashedResource.Hash);
@@ -595,43 +587,36 @@ struct CompiledShaderCollection {
             HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
             hashedReflectedShader.StorageBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
             city64.CombineWith(hashedResource.Hash);
-            
+
             HashedReflectedResourceState state = GetHashedReflectedResourceState(reflectedResource);
             hashedReflectedShader.UniformBufferStateIndices.push_back(GetReflectedResourceStateIndex(state));
             city64.CombineWith(hashedResource.Hash);
         }
-        
+
         hashedReflectedShader.Hash = city64.Value;
         return hashedReflectedShader;
     }
-    uint32_t GetReflectedShaderIndex(const HashedReflectedShader& reflectedShader) {
-        auto it = std::find_if(uniqueReflectedShaders.begin(), uniqueReflectedShaders.end(), [reflectedShader](const HashedReflectedShader& existingReflectedShader) { return existingReflectedShader.Hash == reflectedShader.Hash; });
-        if (it != uniqueReflectedShaders.end()) { return std::distance(uniqueReflectedShaders.begin(), it); }
-        uint32_t index = uniqueReflectedShaders.size();
-        uniqueReflectedShaders.push_back(reflectedShader);
-        return index;
+    uint32_t GetReflectedShaderIndex(const HashedReflectedShader& reflected) {
+        return TAddIfMissingAndGetIndexByHash(uniqueReflectedShaders, reflected);
     }
     uint32_t GetCompiledShaderIndex(const HashedCompiledShader& compiledShader) {
-        auto it = std::find_if(uniqueCompiledShaders.begin(), uniqueCompiledShaders.end(), [compiledShader](const HashedCompiledShader& existingCompiledShader) { return existingCompiledShader.Hash == compiledShader.Hash; });
-        if (it != uniqueCompiledShaders.end()) { return std::distance(uniqueCompiledShaders.begin(), it); }
-        uint32_t index = uniqueCompiledShaders.size();
-        uniqueCompiledShaders.push_back(compiledShader);
-        return index;
+        return TAddIfMissingAndGetIndexByHash(uniqueCompiledShaders, compiledShader);
     }
+    // clang-format off
     uint32_t GetStringIndex(const std::string& string) {
         uint64_t hash = apemode::CityHash64(string.data(), string.size());
-        auto it = std::find_if(uniqueStrings.begin(), uniqueStrings.end(), [hash](const UniqueString& hashedString) { return hashedString.Hash == hash; });
+        auto it = std::find_if(uniqueStrings.begin(), uniqueStrings.end(), [hash](const UniqueString& existing) { return existing.Hash == hash; });
         if (it != uniqueStrings.end()) { return std::distance(uniqueStrings.begin(), it); }
-        uint32_t index = uniqueStrings.size();
-        uniqueStrings.push_back({hash, string});
+        const uint32_t index = uniqueStrings.size();
+        uniqueStrings.push_back({{hash}, string});
         return index;
     }
     uint32_t GetBufferIndex(const std::vector<uint8_t>& buffer) {
         uint64_t hash = apemode::CityHash64((const char*)buffer.data(), buffer.size());
-        auto it = std::find_if(uniqueBuffers.begin(), uniqueBuffers.end(), [hash](const UniqueBuffer& hashedBuffer) { return hashedBuffer.Hash == hash; });
+        auto it = std::find_if(uniqueBuffers.begin(), uniqueBuffers.end(), [hash](const UniqueBuffer& existing) { return existing.Hash == hash; });
         if (it != uniqueBuffers.end()) { return std::distance(uniqueBuffers.begin(), it); }
-        uint32_t index = uniqueBuffers.size();
-        uniqueBuffers.push_back({hash, buffer});
+        const uint32_t index = uniqueBuffers.size();
+        uniqueBuffers.push_back({{hash}, buffer});
         return index;
     }
     // clang-format on
@@ -690,10 +675,7 @@ public:
         const auto feedbackCompilationError = eType & eFeedbackType_CompilationStatusMask;
 
         if (eFeedbackType_CompilationStatus_Success != feedbackCompilationError) {
-            apemode::LogError("ShaderCompiler: {}/{}: {}",
-                              feedbackStage,
-                              feedbackCompilationError,
-                              FullFilePath);
+            apemode::LogError("ShaderCompiler: {}/{}: {}", feedbackStage, feedbackCompilationError, FullFilePath);
             apemode::LogError(" Msg: {}", (const char*)pContent);
             assert(false);
         } else {
@@ -850,7 +832,7 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
 
     apemode::shp::IShaderCompiler::ShaderType eShaderType = GetShaderType(shaderType);
     if (eShaderType == apemode::shp::IShaderCompiler::ShaderType::Count) { return {}; }
-    
+
     cso.Type = cso::Shader(eShaderType);
 
     ShaderCompilerIncludedFileSet includedFileSet;
@@ -1030,11 +1012,10 @@ std::vector<CompiledShaderVariant> CompileShader(const apemode::platform::shared
 }
 } // namespace
 
-
-template < int TPrecision = 100 >
-float RoundOff( float n ) {
-    const float i = n * static_cast< float >( TPrecision ) + 0.5f;
-    return ( (float) (int) i ) / static_cast< float >( TPrecision );
+template <int TPrecision = 100>
+float RoundOff(float n) {
+    const float i = n * static_cast<float>(TPrecision) + 0.5f;
+    return ((float)(int)i) / static_cast<float>(TPrecision);
 }
 
 // clang-format off
@@ -1148,7 +1129,7 @@ int main(int argc, char** argv) {
 
     auto builtBuffePtr = (const char*)fbb.GetBufferPointer();
     auto builtBuffeLen = (size_t)fbb.GetSize();
-    
+
     apemode::LogInfo("= {} bytes = ~{}", builtBuffeLen, ToPrettySizeString(builtBuffeLen));
 
     apemode::LogInfo("CSO file: {}", outputFile);

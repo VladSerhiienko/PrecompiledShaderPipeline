@@ -97,11 +97,14 @@ void PrintReflection(const ReflectedType& reflectedType,
 
     if (offset != -1 && total_size != -1) {
         outputString += " (offset=" + std::to_string(offset);
-        outputString += ", size=" + std::to_string(total_size);
 
         assert(total_size >= reflectedType.EffectiveByteSize && "Caught size miscalculation.");
         if (uint32_t padding = total_size - reflectedType.EffectiveByteSize) {
+            outputString += ", effective_size=" + std::to_string(reflectedType.EffectiveByteSize);
+            outputString += ", total_size=" + std::to_string(total_size);
             outputString += ", padding=" + std::to_string(padding);
+        } else {
+            outputString += ", size=" + std::to_string(reflectedType.EffectiveByteSize);
         }
         outputString += ")";
     } else if (reflectedType.EffectiveByteSize) {
@@ -125,14 +128,13 @@ void PrintReflection(const ReflectedType& reflectedType,
 }
 void PrintReflection(const ReflectedResource& reflectedResource, const std::string& prefix, bool isLastItem) {
     std::string outputString = prefix;
-    
+
     // clang-format off
     outputString += isLastItem ? "└ - " : "├ - ";
     outputString += reflectedResource.Name.empty() ? "<unnamed>" : reflectedResource.Name;
     outputString += " (set=" + ((reflectedResource.DecorationDescriptorSet == -1) ? "?" : std::to_string(reflectedResource.DecorationDescriptorSet));
     outputString += ", binding=" + ((reflectedResource.DecorationBinding == -1) ? "?" : std::to_string(reflectedResource.DecorationBinding));
     outputString += ", location=" + ((reflectedResource.DecorationLocation == -1) ? "?" : std::to_string(reflectedResource.DecorationLocation));
-    outputString += ", active=" + std::string(reflectedResource.bIsActive ? "yes" : "no");
     
     if (!reflectedResource.ActiveRanges.empty()) {
         outputString += ", active_ranges=[";
@@ -143,8 +145,9 @@ void PrintReflection(const ReflectedResource& reflectedResource, const std::stri
             outputString += std::to_string(r.size);
             outputString += "),";
         }
-        
         outputString.back() = ']';
+    } else {
+        outputString += ", is_active=" + std::string(reflectedResource.bIsActive ? "yes" : "no");
     }
     
     outputString += ")";
@@ -211,9 +214,7 @@ public:
     spirv_cross::CompilerMSL CompilerMSL;
     spirv_cross::Compiler& Reflection;
 
-    CompiledShader(std::vector<uint32_t>&& dwords,
-                   std::string&& preprocessedSrc,
-                   std::string&& assemblySrc)
+    CompiledShader(std::vector<uint32_t>&& dwords, std::string&& preprocessedSrc, std::string&& assemblySrc)
         : Dwords(std::move(dwords))
         , PreprocessedSrc(std::move(preprocessedSrc))
         , AssemblySrc(std::move(assemblySrc))
@@ -233,7 +234,7 @@ public:
         PopulateReflection();
     }
 
-    ~CompiledShader() {}
+    ~CompiledShader() = default;
 
     void ReflectMemberType(const spirv_cross::SPIRType& type,
                            ReflectedType& reflectedType,
@@ -340,7 +341,6 @@ public:
         if (reflectedResource.Type.ElementPrimitiveType != eReflectedPrimitiveType_Struct) { return; }
         auto activeRanges = Reflection.get_active_buffer_ranges(resource.id);
         if (!activeRanges.empty()) {
-        
             // clang-format off
             reflectedResource.ActiveRanges.reserve(activeRanges.size());
             for (auto& r : activeRanges) { reflectedResource.ActiveRanges.push_back({(uint32_t)r.offset, (uint32_t)r.range}); }
@@ -350,7 +350,7 @@ public:
             //
             // Collapse into minimal amount of memory ranges.
             //
-            
+
             if (reflectedResource.ActiveRanges.size() > 1) {
                 auto prevIt = reflectedResource.ActiveRanges.begin();
                 auto currIt = std::next(prevIt);
@@ -367,14 +367,17 @@ public:
         }
     }
 
-    void ReflectResource(const spirv_cross::Resource& resource, ReflectedResource& reflectedResource, const std::unordered_set<spirv_cross::VariableID>& activeVariableIds, bool bMightHaveActiveRanges) {
+    void ReflectResource(const spirv_cross::Resource& resource,
+                         ReflectedResource& reflectedResource,
+                         const std::unordered_set<spirv_cross::VariableID>& activeVariableIds,
+                         bool bMightHaveActiveRanges) {
         const spirv_cross::SPIRType& type = Reflection.get_type(resource.base_type_id);
         reflectedResource.Type = ReflectType(type);
         reflectedResource.Name = Reflection.get_name(resource.id);
         reflectedResource.DecorationDescriptorSet = ReflectDecoration(resource.id, spv::DecorationDescriptorSet);
         reflectedResource.DecorationBinding = ReflectDecoration(resource.id, spv::DecorationBinding);
         reflectedResource.DecorationLocation = ReflectDecoration(resource.id, spv::DecorationLocation);
-        
+
         const auto it = activeVariableIds.find(resource.id);
         if (it != activeVariableIds.end()) {
             reflectedResource.bIsActive = true;
@@ -404,7 +407,7 @@ public:
         reflectedConstant.bIsSpecialization = spirConstant.specialization;
         reflectedConstant.bIsUsedAsArrayLength = spirConstant.is_used_as_array_length;
         reflectedConstant.bIsUsedAsLUT = spirConstant.is_used_as_lut;
-        
+
         if (reflectedConstant.MacroName.empty()) {
             constexpr std::string_view kSpirvCrossConstantIdPrefix = "SPIRV_CROSS_CONSTANT_ID_";
             reflectedConstant.MacroName = kSpirvCrossConstantIdPrefix;
@@ -430,7 +433,8 @@ public:
     void PopulateReflection() {
         const auto& constants = Reflection.get_specialization_constants();
         ReflectConstantVector(constants, Reflected.Constants);
-        
+
+        // clang-format off
         const auto activeVariableIds = Reflection.get_active_interface_variables();
         const spirv_cross::ShaderResources shaderResources = Reflection.get_shader_resources();
         ReflectResourceVector(shaderResources.uniform_buffers, Reflected.UniformBuffers, activeVariableIds, true);
@@ -442,6 +446,7 @@ public:
         ReflectResourceVector(shaderResources.separate_samplers, Reflected.SeparateSamplers, activeVariableIds);
         ReflectResourceVector(shaderResources.storage_images, Reflected.StorageImages, activeVariableIds);
         ReflectResourceVector(shaderResources.storage_buffers, Reflected.StorageBuffers, activeVariableIds, true);
+        // clang-format on
 
         PrintReflection(Reflected);
     }
@@ -650,7 +655,8 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     }
 
     std::vector<uint32_t> dwords(spvCompilationResult.cbegin(), spvCompilationResult.cend());
-    std::string preprocessedSrc(preprocessedSourceCompilationResult.cbegin(), preprocessedSourceCompilationResult.cend());
+    std::string preprocessedSrc(preprocessedSourceCompilationResult.cbegin(),
+                                preprocessedSourceCompilationResult.cend());
     std::string assemblySrc(assemblyCompilationResult.cbegin(), assemblyCompilationResult.cend());
 
     auto pCompiledShader = new CompiledShader(std::move(dwords), std::move(preprocessedSrc), std::move(assemblySrc));
@@ -670,7 +676,8 @@ std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     options.SetOptimizationLevel(shaderc_optimization_level(eShaderOptimization));
     options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
 
-    return InternalCompile(shaderName, shaderContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
+    return InternalCompile(
+        shaderName, shaderContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
 }
 
 std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
@@ -707,7 +714,8 @@ std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     // apemode::LogInfo("ShaderCompiler: Compiling {}", InFilePath);
 
     if (pShaderFileReader->ReadShaderTxtFile(InFilePath, fullPath, fileContent)) {
-        auto compiledShader = InternalCompile(fullPath, fileContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
+        auto compiledShader = InternalCompile(
+            fullPath, fileContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
         if (compiledShader) {
             pOutIncludedFiles->InsertIncludedFile(fullPath);
             return compiledShader;
