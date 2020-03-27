@@ -3,6 +3,7 @@
 #include <apemode/platform/AppState.h>
 #include <apemode/platform/IAssetManager.h>
 
+#include <memory>
 #include <shaderc/shaderc.hpp>
 #include <spirv_glsl.hpp>
 #include <spirv_msl.hpp>
@@ -478,10 +479,10 @@ public:
 
     // Handles shaderc_include_resolver_fn callbacks.
     shaderc_include_result* GetInclude(const char* pszRequestedSource,
-                                       shaderc_include_type eShaderIncludeType,
+                                       const shaderc_include_type includeType,
                                        const char* pszRequestingSource,
-                                       size_t includeDepth) {
-        auto userData = apemode::make_unique<UserData>();
+                                       const size_t includeDepth) {
+        auto userData = std::make_unique<UserData>();
         if (userData && pIncludedFiles &&
             FileReader.ReadShaderTxtFile(pszRequestedSource, userData->Path, userData->Content)) {
             pIncludedFiles->InsertIncludedFile(userData->Path);
@@ -515,11 +516,11 @@ public:
 
     /* @note No files, only ready to compile shader sources */
 
-    std::unique_ptr<ICompiledShader> Compile(const std::string& ShaderName,
-                                             const std::string& ShaderCode,
+    std::unique_ptr<ICompiledShader> Compile(const std::string& shaderName,
+                                             const std::string& shaderCode,
                                              const IMacroDefinitionCollection* pMacros,
-                                             ShaderType eShaderKind,
-                                             EShaderOptimizationType eShaderOptimization) const override;
+                                             ShaderType shaderType,
+                                             EShaderOptimizationType optimizationType) const override;
 
     /* @note Compiling from source files */
 
@@ -530,8 +531,8 @@ public:
 
     std::unique_ptr<ICompiledShader> Compile(const std::string& FilePath,
                                              const IMacroDefinitionCollection* pMacros,
-                                             ShaderType eShaderKind,
-                                             EShaderOptimizationType eShaderOptimization,
+                                             ShaderType shaderType,
+                                             EShaderOptimizationType optimizationType,
                                              IIncludedFileSet* pOutIncludedFiles) const override;
 
 private:
@@ -558,7 +559,7 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     const std::string& shaderName,
     const std::string& shaderContent,
     const IShaderCompiler::IMacroDefinitionCollection* pMacros,
-    const IShaderCompiler::ShaderType eShaderKind,
+    const IShaderCompiler::ShaderType shaderType,
     shaderc::CompileOptions& options,
     const bool bAssembly,
     const shaderc::Compiler* pCompiler,
@@ -567,7 +568,7 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     if (nullptr == pCompiler) { return nullptr; }
 
     shaderc::PreprocessedSourceCompilationResult preprocessedSourceCompilationResult =
-        pCompiler->PreprocessGlsl(shaderContent, (shaderc_shader_kind)eShaderKind, shaderName.c_str(), options);
+        pCompiler->PreprocessGlsl(shaderContent, (shaderc_shader_kind)shaderType, shaderName.c_str(), options);
 
     if (shaderc_compilation_status_success != preprocessedSourceCompilationResult.GetCompilationStatus()) {
         if (nullptr != pShaderFeedbackWriter) {
@@ -594,7 +595,7 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     }
 
     shaderc::AssemblyCompilationResult assemblyCompilationResult = pCompiler->CompileGlslToSpvAssembly(
-        preprocessedSourceCompilationResult.begin(), (shaderc_shader_kind)eShaderKind, shaderName.c_str(), options);
+        preprocessedSourceCompilationResult.begin(), (shaderc_shader_kind)shaderType, shaderName.c_str(), options);
 
     if (shaderc_compilation_status_success != assemblyCompilationResult.GetCompilationStatus()) {
         apemode::LogError("ShaderCompiler: Failed to compile processed GLSL to SPV assembly: {}.",
@@ -626,7 +627,7 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     }
 
     shaderc::SpvCompilationResult spvCompilationResult = pCompiler->CompileGlslToSpv(
-        preprocessedSourceCompilationResult.begin(), (shaderc_shader_kind)eShaderKind, shaderName.c_str(), options);
+        preprocessedSourceCompilationResult.begin(), (shaderc_shader_kind)shaderType, shaderName.c_str(), options);
 
     if (shaderc_compilation_status_success != spvCompilationResult.GetCompilationStatus()) {
         if (nullptr != pShaderFeedbackWriter) {
@@ -654,43 +655,40 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
                                              spvCompilationResult.cend());
     }
 
+    // clang-format off
     std::vector<uint32_t> dwords(spvCompilationResult.cbegin(), spvCompilationResult.cend());
-    std::string preprocessedSrc(preprocessedSourceCompilationResult.cbegin(),
-                                preprocessedSourceCompilationResult.cend());
+    std::string preprocessedSrc(preprocessedSourceCompilationResult.cbegin(), preprocessedSourceCompilationResult.cend());
     std::string assemblySrc(assemblyCompilationResult.cbegin(), assemblyCompilationResult.cend());
-
-    auto pCompiledShader = new CompiledShader(std::move(dwords), std::move(preprocessedSrc), std::move(assemblySrc));
-    return std::unique_ptr<ICompiledShader>(pCompiledShader);
+    return std::unique_ptr<ICompiledShader>(new CompiledShader(std::move(dwords), std::move(preprocessedSrc), std::move(assemblySrc)));
+    // clang-format on
 }
 
 std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
     const std::string& shaderName,
     const std::string& shaderContent,
     const IMacroDefinitionCollection* pMacros,
-    const ShaderType eShaderKind,
-    const EShaderOptimizationType eShaderOptimization) const {
-    apemode_memory_allocation_scope;
-
+    const ShaderType shaderType,
+    const EShaderOptimizationType optimizationType) const {
     shaderc::CompileOptions options;
     options.SetSourceLanguage(shaderc_source_language_glsl);
-    options.SetOptimizationLevel(shaderc_optimization_level(eShaderOptimization));
+    options.SetOptimizationLevel(shaderc_optimization_level(optimizationType));
     options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
 
-    return InternalCompile(
-        shaderName, shaderContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
+    // clang-format off
+    return InternalCompile(shaderName, shaderContent, pMacros, shaderType, options, true, &Compiler, pShaderFeedbackWriter);
+    // clang-format on
 }
 
-std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
-    const std::string& InFilePath,
-    const IMacroDefinitionCollection* pMacros,
-    const ShaderType eShaderKind,
-    const EShaderOptimizationType eShaderOptimization,
-    IIncludedFileSet* pOutIncludedFiles) const {
-    apemode_memory_allocation_scope;
+std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(const std::string& filePath,
+                                                                       const IMacroDefinitionCollection* pMacros,
+                                                                       const ShaderType shaderType,
+                                                                       const EShaderOptimizationType optimizationType,
+                                                                       IIncludedFileSet* pOutIncludedFiles) const {
+    // apemode::LogInfo("ShaderCompiler: Compiling {}", InFilePath);
 
     shaderc::CompileOptions options;
     options.SetSourceLanguage(shaderc_source_language_glsl);
-    options.SetOptimizationLevel(shaderc_optimization_level(eShaderOptimization));
+    options.SetOptimizationLevel(shaderc_optimization_level(optimizationType));
     options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
 
     if (pShaderFileReader) {
@@ -708,19 +706,32 @@ std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(
         }
     }
 
-    std::string fullPath;
-    std::string fileContent;
+    switch (shaderType) { // clang-format off
+        case ShaderType::Vertex:         options.AddMacroDefinition("VERTEX_SHADER", "1");      break;
+        case ShaderType::Fragment:       options.AddMacroDefinition("FRAGMENT_SHADER", "1");    break;
+        case ShaderType::Compute:        options.AddMacroDefinition("COMPUTE_SHADER", "1");     break;
+        case ShaderType::Geometry:       options.AddMacroDefinition("GEOMETRY_SHADER", "1");    break;
+        case ShaderType::TessControl:    options.AddMacroDefinition("TESSCONTROL_SHADER", "1"); break;
+        case ShaderType::TessEvaluation: options.AddMacroDefinition("TESSEVALUATION_SHADER", "1");    break;
+        case ShaderType::RayGeneration:  options.AddMacroDefinition("RAYGENERATION_SHADER", "1");      break;
+        case ShaderType::AnyHit:         options.AddMacroDefinition("ANYHIT_SHADER", "1");      break;
+        case ShaderType::ClosestHit:     options.AddMacroDefinition("CLOSESTHIT_SHADER", "1");  break;
+        case ShaderType::Miss:           options.AddMacroDefinition("MISS_SHADER", "1");        break;
+        case ShaderType::Intersection:   options.AddMacroDefinition("INTERSECTION_SHADER", "1");   break;
+        case ShaderType::Callable:       options.AddMacroDefinition("CALLABLE_SHADER", "1");    break;
+        case ShaderType::Task:           options.AddMacroDefinition("TASK_SHADER", "1");        break;
+        case ShaderType::Mesh:           options.AddMacroDefinition("MESH_SHADER", "1");        break;
+        default:                         options.AddMacroDefinition("ANY_SHADER", "1");         break;
+    } // clang-format on
 
-    // apemode::LogInfo("ShaderCompiler: Compiling {}", InFilePath);
-
-    if (pShaderFileReader->ReadShaderTxtFile(InFilePath, fullPath, fileContent)) {
-        auto compiledShader = InternalCompile(
-            fullPath, fileContent, pMacros, eShaderKind, options, true, &Compiler, pShaderFeedbackWriter);
-        if (compiledShader) {
+    std::string fullPath = "";
+    std::string contents = "";
+    if (pShaderFileReader->ReadShaderTxtFile(filePath, fullPath, contents)) { // clang-format off
+        if (auto compiledShader = InternalCompile(fullPath, contents, pMacros, shaderType, options, true, &Compiler, pShaderFeedbackWriter)) {
             pOutIncludedFiles->InsertIncludedFile(fullPath);
             return compiledShader;
         }
-    }
+    } // clang-format on
 
     return nullptr;
 }

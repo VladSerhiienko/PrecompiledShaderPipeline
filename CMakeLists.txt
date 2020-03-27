@@ -333,8 +333,8 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.Vulkan.h
     ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.Vulkan.cpp
     ${CMAKE_SOURCE_DIR}/src/shaderc/main.cpp
-    ${CMAKE_SOURCE_DIR}/src/apemode/platform/memory/MemoryManager.cpp
-    ${CMAKE_SOURCE_DIR}/src/apemode/platform/memory/MemoryManager.h
+    # ${CMAKE_SOURCE_DIR}/src/apemode/platform/memory/MemoryManager.cpp
+    # ${CMAKE_SOURCE_DIR}/src/apemode/platform/memory/MemoryManager.h
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.cpp
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.h
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/AppState.cpp
@@ -342,15 +342,15 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/IAssetManager.h
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/CityHash.cpp
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/CityHash.h
-    ${CMAKE_SOURCE_DIR}/submodules/eastl/source/allocator_eastl.cpp
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/assert.cpp
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/fixed_pool.cpp
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/hashtable.cpp	
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/intrusive_list.cpp
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/numeric_limits.cpp
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/red_black_tree.cpp
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/string.cpp
-	${CMAKE_SOURCE_DIR}/submodules/eastl/source/thread_support.cpp
+    # ${CMAKE_SOURCE_DIR}/submodules/eastl/source/allocator_eastl.cpp
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/assert.cpp
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/fixed_pool.cpp
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/hashtable.cpp	
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/intrusive_list.cpp
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/numeric_limits.cpp
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/red_black_tree.cpp
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/string.cpp
+	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/thread_support.cpp
     )
 
 target_include_directories(

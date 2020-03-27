@@ -340,14 +340,14 @@ struct CompiledShaderCollection {
 
             const uint32_t compiledShaderIndex = GetCompiledShaderIndex(compiledShader);
 
-            apemode::CityHash64Wrapper city64 = {};
+            apemode::CityHasher64 city64 = {};
             HashedCompiledShaderInfo compiledShaderInfo = {};
 
             compiledShaderInfo.CompiledShaderIndex = compiledShaderIndex;
             compiledShaderInfo.AssetIndex = GetStringIndex(cso.Asset);
             compiledShaderInfo.DefinitionsIndex = GetStringIndex(cso.Definitions);
             compiledShaderInfo.ShaderType = cso.Type;
-            
+
             city64.CombineWith(compiledShaderInfo.ShaderType);
             city64.CombineWith(uniqueCompiledShaders[compiledShaderInfo.CompiledShaderIndex].Hash);
             city64.CombineWith(GetStringHash(compiledShaderInfo.AssetIndex));
@@ -368,7 +368,7 @@ struct CompiledShaderCollection {
                 compiledShaderInfo.DefinitionIndices.push_back(stringIndex1);
             }
 
-            compiledShaderInfo.Hash = city64.Value;
+            compiledShaderInfo.Hash = city64;
             GetCompiledShaderInfoIndex(compiledShaderInfo);
         }
     }
@@ -405,11 +405,11 @@ struct CompiledShaderCollection {
                        [](apemode::shp::ReflectedMemoryRange r) { return std::make_pair(r.offset, r.size); });
         // clang-format on
 
-        apemode::CityHash64Wrapper city64 = {};
-        city64.CombineWithArray(&*reflectedResource.ActiveRanges.begin(), &*reflectedResource.ActiveRanges.end());
+        apemode::CityHasher64 city64 = {};
+        city64.CombineWithArray(reflectedResource.ActiveRanges.data(), reflectedResource.ActiveRanges.size());
         city64.CombineWith(reflectedState.bIsActive);
 
-        reflectedState.Hash = city64.Value;
+        reflectedState.Hash = city64;
         return reflectedState;
     }
     uint32_t GetReflectedResourceStateIndex(const HashedReflectedResourceState& reflected) {
@@ -440,7 +440,7 @@ struct CompiledShaderCollection {
             hashedReflectedType.MemberTypes.push_back(hashedReflectedMemberType);
         }
 
-        apemode::CityHash64Wrapper city64 = {};
+        apemode::CityHasher64 city64 = {};
         city64.CombineWith(GetStringHash(hashedReflectedType.NameIndex));
         city64.CombineWith(hashedReflectedType.ElementPrimitiveType);
         city64.CombineWith(hashedReflectedType.ElementByteSize);
@@ -460,7 +460,7 @@ struct CompiledShaderCollection {
             city64.CombineWith(members.OccupiedByteSize);
         }
 
-        hashedReflectedType.Hash = city64.Value;
+        hashedReflectedType.Hash = city64;
         return hashedReflectedType;
     }
     uint32_t GetReflectedTypeIndex(const HashedReflectedType& reflected) {
@@ -476,14 +476,14 @@ struct CompiledShaderCollection {
         hashedReflectedResource.DescriptorBinding = reflectedResource.DecorationBinding;
         hashedReflectedResource.Locaton = reflectedResource.DecorationLocation;
 
-        apemode::CityHash64Wrapper city64 = {};
+        apemode::CityHasher64 city64 = {};
         city64.CombineWith(GetStringHash(hashedReflectedResource.NameIndex));
         city64.CombineWith(GetTypeHash(hashedReflectedResource.TypeIndex));
         city64.CombineWith(hashedReflectedResource.DescriptorSet);
         city64.CombineWith(hashedReflectedResource.DescriptorBinding);
         city64.CombineWith(hashedReflectedResource.Locaton);
 
-        hashedReflectedResource.Hash = city64.Value;
+        hashedReflectedResource.Hash = city64;
         return hashedReflectedResource;
     }
     uint32_t GetReflectedResourceIndex(const HashedReflectedResource& reflected) {
@@ -502,7 +502,7 @@ struct CompiledShaderCollection {
         hashedReflectedConstant.bIsUsedAsArrayLength = reflectedConstant.bIsUsedAsArrayLength;
         hashedReflectedConstant.bIsUsedAsLUT = reflectedConstant.bIsUsedAsLUT;
 
-        apemode::CityHash64Wrapper city64 = {};
+        apemode::CityHasher64 city64 = {};
         city64.CombineWith(GetStringHash(hashedReflectedConstant.NameIndex));
         city64.CombineWith(GetStringHash(hashedReflectedConstant.MacroIndex));
         city64.CombineWith(GetTypeHash(hashedReflectedConstant.TypeIndex));
@@ -512,7 +512,7 @@ struct CompiledShaderCollection {
         city64.CombineWith(hashedReflectedConstant.bIsUsedAsArrayLength);
         city64.CombineWith(hashedReflectedConstant.bIsUsedAsLUT);
 
-        hashedReflectedConstant.Hash = city64.Value;
+        hashedReflectedConstant.Hash = city64;
         return hashedReflectedConstant;
     }
     uint32_t GetReflectedConstantIndex(const HashedReflectedConstant& reflected) {
@@ -520,7 +520,7 @@ struct CompiledShaderCollection {
     }
     HashedReflectedShader GetHashedReflectionShader(const apemode::shp::ReflectedShader& reflectedShader) {
         HashedReflectedShader hashedReflectedShader = {};
-        apemode::CityHash64Wrapper city64 = {};
+        apemode::CityHasher64 city64 = {};
 
         hashedReflectedShader.NameIndex = GetStringIndex(reflectedShader.Name);
         city64.CombineWith(GetStringHash(hashedReflectedShader.NameIndex));
@@ -593,7 +593,7 @@ struct CompiledShaderCollection {
             city64.CombineWith(hashedResource.Hash);
         }
 
-        hashedReflectedShader.Hash = city64.Value;
+        hashedReflectedShader.Hash = city64;
         return hashedReflectedShader;
     }
     uint32_t GetReflectedShaderIndex(const HashedReflectedShader& reflected) {
@@ -843,6 +843,7 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
                                                      &includedFileSet)) {
         cso.Compiled.assign(compiledShader->GetBytePtr(),
                             compiledShader->GetBytePtr() + compiledShader->GetByteCount());
+
         cso.Preprocessed = compiledShader->GetPreprocessedSrc();
         cso.Assembly = compiledShader->GetAssemblySrc();
         cso.CompiledGLSL = compiledShader->GetCompiledGLSL();
@@ -861,22 +862,25 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
         const size_t fileStartPos = dstFile.find_last_of("/\\");
         if (fileStartPos != dstFile.npos) { dstFile = dstFile.substr(fileStartPos + 1); }
 
-        std::string dstFilePath =
-            outputFolder + "/" + dstFile + (macrosString.empty() ? "" : "-defs-") + macrosString + ".spv";
+        // clang-format off
+        std::string dstFilePath = outputFolder + "/" + dstFile + (macrosString.empty() ? "" : "-defs-") + macrosString + ".spv";
+        // clang-format on
 
         ReplaceAll(dstFilePath, "//", "/");
         ReplaceAll(dstFilePath, "\\/", "\\");
         ReplaceAll(dstFilePath, "\\\\", "\\");
 
-        std::string cachedPreprocessed = dstFilePath + "-preprocessed.txt";
-        std::string cachedAssembly = dstFilePath + "-assembly.txt";
-        std::string cachedGLSL = dstFilePath + "-c-glsl.txt";
-        std::string cachedMSL = dstFilePath + "-c-msl.txt";
-
-        flatbuffers::SaveFile(
-            dstFilePath.c_str(), (const char*)compiledShader->GetBytePtr(), compiledShader->GetByteCount(), true);
+        const std::string cachedPreprocessed = dstFilePath + "-preprocessed.txt";
+        const std::string cachedAssembly = dstFilePath + "-assembly.txt";
+        const std::string cachedGLSL = dstFilePath + "-c-glsl.txt";
+        const std::string cachedMSL = dstFilePath + "-c-msl.txt";
 
         // clang-format off
+        flatbuffers::SaveFile(dstFilePath.c_str(),
+                              (const char*)compiledShader->GetBytePtr(),
+                              compiledShader->GetByteCount(),
+                              true);
+
         flatbuffers::SaveFile(cachedPreprocessed.c_str(),
                               compiledShader->GetPreprocessedSrc().data(),
                               compiledShader->GetPreprocessedSrc().size(),
@@ -1130,7 +1134,7 @@ int main(int argc, char** argv) {
     auto builtBuffePtr = (const char*)fbb.GetBufferPointer();
     auto builtBuffeLen = (size_t)fbb.GetSize();
 
-    apemode::LogInfo("= {} bytes = ~{}", builtBuffeLen, ToPrettySizeString(builtBuffeLen));
+    apemode::LogInfo("= {} bytes ~ {}", builtBuffeLen, ToPrettySizeString(builtBuffeLen));
 
     apemode::LogInfo("CSO file: {}", outputFile);
     if (!flatbuffers::SaveFile(outputFile.c_str(), builtBuffePtr, builtBuffeLen, true)) {

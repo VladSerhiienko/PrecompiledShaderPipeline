@@ -14,6 +14,7 @@
 #pragma warning(pop)
 
 namespace apemode {
+namespace {
 class ImplementedAppState : public AppState {
 public:
     std::shared_ptr<spdlog::logger> Logger; /* Prints to console and file */
@@ -23,29 +24,25 @@ public:
     ImplementedAppState(int args, const char** argv);
     virtual ~ImplementedAppState();
 };
+} // namespace
 } // namespace apemode
 
 static apemode::ImplementedAppState* gState = nullptr;
 
 apemode::AppState* apemode::AppState::Get() { return gState; }
-
 spdlog::logger* apemode::AppState::GetLogger() { return gState->Logger.get(); }
-
 argh::parser* apemode::AppState::GetArgs() { return &gState->Cmdl; }
-
 tf::Taskflow* apemode::AppState::GetDefaultTaskflow() { return &gState->Taskflow; }
 
 void apemode::AppState::OnMain(int args, const char** ppArgs) {
-    if (nullptr == gState) gState = apemode_new ImplementedAppState(args, ppArgs);
+    if (nullptr == gState) gState = new ImplementedAppState(args, ppArgs);
 }
 
 void apemode::AppState::OnExit() {
-    if (nullptr != gState) { apemode_delete(gState); }
+    if (nullptr != gState) { delete gState; }
 }
 
 std::string ComposeLogFile() {
-    apemode_memory_allocation_scope;
-
     tm* pCurrentTime = nullptr;
     time_t currentSystemTime = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
@@ -73,57 +70,29 @@ std::string ComposeLogFile() {
 }
 
 std::shared_ptr<spdlog::logger> CreateLogger(spdlog::level::level_enum lvl, std::string logFile) {
-    apemode_memory_allocation_scope;
-
     std::vector<spdlog::sink_ptr> sinks {
 #if _WIN32
         std::make_shared<spdlog::sinks::wincolor_stdout_sink_mt>(), std::make_shared<spdlog::sinks::msvc_sink_mt>(),
             std::make_shared<spdlog::sinks::simple_file_sink_mt>(logFile.c_str())
 #else
         std::make_shared<spdlog::sinks::stdout_sink_mt>(),
-        // std::make_shared< spdlog::sinks::simple_file_sink_mt >( logFile.c_str( ) )
+            std::make_shared<spdlog::sinks::simple_file_sink_mt>(logFile.c_str())
 #endif
     };
 
     auto logger = spdlog::create<>("viewer", sinks.begin(), sinks.end());
     logger->set_level(lvl);
-
-    // spdlog::set_pattern("%v");
-    // logger->info("");
-    // logger->info("\t   _____ __    ____");
-    // logger->info("\t  / ___// /_  / __ \\");
-    // logger->info("\t  \\__ \\/ __ \\/ /_/ /");
-    // logger->info("\t ___/ / / / / ____/");
-    // logger->info("\t/____/_/ /_/_/");
-    // logger->info("");
-    // spdlog::set_pattern("%c");
-    // logger->info("");
-
     spdlog::set_pattern("[%T.%f] [%t] [%L] %v");
     return logger;
 }
 
 apemode::ImplementedAppState::ImplementedAppState(int argc, const char** argv)
-    : Logger(nullptr), Cmdl(), Taskflow("AppState") {
+    : Logger(nullptr), Cmdl(), Taskflow("Default") {
     Logger = CreateLogger(spdlog::level::trace, ComposeLogFile());
-    Logger->info("Input argumets:");
-    for (int i = 0; i < argc; ++i) { Logger->info("#{} = {}", i, argv[i]); }
-
     Cmdl.parse(argc, argv, argh::parser::PREFER_PARAM_FOR_UNREG_OPTION);
+
+    // Logger->info("Input argumets:");
+    // for (int i = 0; i < argc; ++i) { Logger->info("#{} = {}", i, argv[i]); }
 }
 
-apemode::ImplementedAppState::~ImplementedAppState() {
-    apemode_memory_allocation_scope;
-
-    // LogInfo("ImplementedAppState: Destroying.");
-    // spdlog::set_pattern("%v");
-    // Logger->info("");
-    // Logger->info("\t    _____          ");
-    // Logger->info("\t   / __ /__  _____ ");
-    // Logger->info("\t  / __  / / / / _ \\");
-    // Logger->info("\t / /_/ / /_/ /  __/");
-    // Logger->info("\t/_____/\\__, /\\___/ ");
-    // Logger->info("\t      /____/       ");
-    // spdlog::set_pattern("%c");
-    // Logger->info("");
-}
+apemode::ImplementedAppState::~ImplementedAppState() = default;

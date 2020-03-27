@@ -66,32 +66,24 @@ std::string ToCanonicalAbsolutPath(const char* pszRelativePath) {
 }
 
 const char* apemode::platform::shared::AssetFile::GetName() const { return Name.c_str(); }
-
 const char* apemode::platform::shared::AssetFile::GetId() const { return Path.c_str(); }
 
-apemode::vector<uint8_t> apemode::platform::shared::AssetFile::GetContentAsTextBuffer() const {
-    apemode_memory_allocation_scope;
+std::vector<uint8_t> apemode::platform::shared::AssetFile::GetContentAsTextBuffer() const {
     return FileReader().ReadTxtFile(Path.c_str());
 }
 
-apemode::vector<uint8_t> apemode::platform::shared::AssetFile::GetContentAsBinaryBuffer() const {
-    apemode_memory_allocation_scope;
+std::vector<uint8_t> apemode::platform::shared::AssetFile::GetContentAsBinaryBuffer() const {
     return FileReader().ReadBinFile(Path.c_str());
 }
 
 uint64_t apemode::platform::shared::AssetFile::GetCurrentVersion() const { return LastTimeModified.load(); }
-
 void apemode::platform::shared::AssetFile::SetName(const char* pszAssetName) { Name = pszAssetName; }
-
 void apemode::platform::shared::AssetFile::SetId(const char* pszAssetPath) { Path = pszAssetPath; }
-
 void apemode::platform::shared::AssetFile::SetCurrentVersion(uint64_t version) { LastTimeModified.store(version); }
-
 apemode::platform::shared::AssetManager::AssetManager() : InUse(false), AssetFiles() {}
 
 const apemode::platform::IAsset* apemode::platform::shared::AssetManager::Acquire(const char* pszAssetName) const {
     auto assetIt = AssetFiles.find(pszAssetName);
-
     if (assetIt == AssetFiles.end()) { return 0; }
 
     const apemode::platform::shared::AssetFile* pAsset = &assetIt->second.Asset;
@@ -111,8 +103,6 @@ uint64_t GetLastModifiedTime(const char* pszFilePath);
 
 template <typename TFileCallback>
 void ProcessFiles(TFileCallback callback, const tinydir_dir& dir, bool r) {
-    apemode_memory_allocation_scope;
-
     // apemode::LogInfo("AssetManager: Entering folder: {}", dir.path);
 
     for (size_t i = 0; i < dir.n_files; i++) {
@@ -132,13 +122,11 @@ void ProcessFiles(TFileCallback callback, const tinydir_dir& dir, bool r) {
     }
 }
 
-apemode::unique_ptr<apemode::platform::IAssetManager> apemode::platform::CreateAssetManager() {
-    return apemode::unique_ptr<apemode::platform::IAssetManager>(apemode_new apemode::platform::shared::AssetManager());
+std::unique_ptr<apemode::platform::IAssetManager> apemode::platform::CreateAssetManager() {
+    return std::unique_ptr<apemode::platform::IAssetManager>(new apemode::platform::shared::AssetManager());
 }
 
 void apemode::platform::shared::AssetManager::AddAsset(const char* pszAssetName, const char* pszAssetPath) {
-    apemode_memory_allocation_scope;
-
     /* Lock. */
     if (std::atomic_exchange_explicit(&InUse, true, std::memory_order_acquire) == true) { return; }
 
@@ -154,9 +142,8 @@ void apemode::platform::shared::AssetManager::AddAsset(const char* pszAssetName,
 void apemode::platform::shared::AssetManager::UpdateAssets(const char* pszFolderPath,
                                                            const char** ppszFilePatterns,
                                                            size_t filePatternCount) {
-    apemode_memory_allocation_scope;
-
     /* Lock. */
+
     if (std::atomic_exchange_explicit(&InUse, true, std::memory_order_acquire) == true) { return; }
 
     /* Process existing assets. */
@@ -263,8 +250,8 @@ void apemode::platform::shared::AssetManager::UpdateAssets(const char* pszFolder
 }
 
 template <bool bTextMode>
-apemode::vector<uint8_t> TReadFile(const char* pszFilePath) {
-    apemode::vector<uint8_t> assetContentBuffer;
+std::vector<uint8_t> TReadFile(const char* pszFilePath) {
+    std::vector<uint8_t> assetContentBuffer;
 
     FILE* pFile = fopen(pszFilePath, "rb");
     if (!pFile) return {};
@@ -284,10 +271,10 @@ apemode::vector<uint8_t> TReadFile(const char* pszFilePath) {
     return assetContentBuffer;
 }
 
-apemode::vector<uint8_t> apemode::platform::shared::FileReader::ReadBinFile(const char* pszFilePath) {
+std::vector<uint8_t> apemode::platform::shared::FileReader::ReadBinFile(const char* pszFilePath) {
     return TReadFile<false>(pszFilePath);
 }
 
-apemode::vector<uint8_t> apemode::platform::shared::FileReader::ReadTxtFile(const char* pszFilePath) {
+std::vector<uint8_t> apemode::platform::shared::FileReader::ReadTxtFile(const char* pszFilePath) {
     return TReadFile<true>(pszFilePath);
 }
