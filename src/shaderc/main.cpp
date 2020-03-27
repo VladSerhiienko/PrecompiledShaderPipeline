@@ -839,7 +839,7 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
     if (auto compiledShader = shaderCompiler.Compile(srcFile,
                                                      &concreteMacros,
                                                      eShaderType,
-                                                     apemode::shp::IShaderCompiler::eShaderOptimization_None,
+                                                     apemode::shp::IShaderCompiler::ShaderOptimizationType::None,
                                                      &includedFileSet)) {
         cso.Compiled.assign(compiledShader->GetBytePtr(),
                             compiledShader->GetBytePtr() + compiledShader->GetByteCount());
