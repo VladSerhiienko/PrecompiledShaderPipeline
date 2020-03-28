@@ -1,17 +1,37 @@
-#include "ShaderCompiler.Vulkan.h"
+#include "ShaderCompiler.h"
 
 #include <apemode/platform/AppState.h>
 #include <apemode/platform/IAssetManager.h>
 
-#include <memory>
 #include <shaderc/shaderc.hpp>
 #include <spirv_glsl.hpp>
 #include <spirv_msl.hpp>
 #include <spirv_reflect.hpp>
 
+#include <memory>
 using namespace apemode::shp;
 
 namespace {
+
+constexpr shaderc_shader_kind ToShaderKind(apemode::shp::IShaderCompiler::ShaderType type) {
+    switch (type) { // clang-format off
+        case apemode::shp::IShaderCompiler::ShaderType::Vertex: return shaderc_shader_kind::shaderc_vertex_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Fragment: return shaderc_shader_kind::shaderc_fragment_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Compute: return shaderc_shader_kind::shaderc_compute_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Geometry: return shaderc_shader_kind::shaderc_geometry_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::TessControl: return shaderc_shader_kind::shaderc_tess_control_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::TessEvaluation: return shaderc_shader_kind::shaderc_tess_evaluation_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::RayGeneration: return shaderc_shader_kind::shaderc_raygen_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::AnyHit: return shaderc_shader_kind::shaderc_anyhit_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::ClosestHit: return shaderc_shader_kind::shaderc_closesthit_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Miss: return shaderc_shader_kind::shaderc_miss_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Intersection: return shaderc_shader_kind::shaderc_intersection_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Callable: return shaderc_shader_kind::shaderc_callable_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Task: return shaderc_shader_kind::shaderc_task_shader; break;
+        case apemode::shp::IShaderCompiler::ShaderType::Mesh: return shaderc_shader_kind::shaderc_mesh_shader; break;
+        default: assert(false); return shaderc_shader_kind::shaderc_glsl_infer_from_source; break;
+    } // clang-format on
+}
 
 constexpr std::string_view ToString(spirv_cross::SPIRType::BaseType bt) {
     switch (bt) { // clang-format off
@@ -38,7 +58,7 @@ constexpr std::string_view ToString(spirv_cross::SPIRType::BaseType bt) {
         case spirv_cross::SPIRType::ControlPointArray: return "ControlPointArray";
         case spirv_cross::SPIRType::Char: return "Char";
         default: assert(false); return "<Error>";
-    }; // clang-format on
+    } // clang-format on
 }
 constexpr ReflectedPrimitiveType Reflect(spirv_cross::SPIRType::BaseType bt) {
     switch (bt) { // clang-format off
@@ -63,7 +83,7 @@ constexpr ReflectedPrimitiveType Reflect(spirv_cross::SPIRType::BaseType bt) {
         case spirv_cross::SPIRType::AccelerationStructureNV: return ReflectedPrimitiveType::AccelerationStructure;
         case spirv_cross::SPIRType::ControlPointArray: return ReflectedPrimitiveType::ControlPointArray;
         default: assert(false); return ReflectedPrimitiveType::Error;
-    }; // clang-format on
+    } // clang-format on
 }
 constexpr size_t PrimitiveTypeSize(ReflectedPrimitiveType primitiveType) {
     switch (primitiveType) { // clang-format off
@@ -80,7 +100,7 @@ constexpr size_t PrimitiveTypeSize(ReflectedPrimitiveType primitiveType) {
         case ReflectedPrimitiveType::Float: return 4;
         case ReflectedPrimitiveType::Double: return 8;
         default: return 0;
-    }; // clang-format on
+    } // clang-format on
 }
 
 void PrintReflection(const ReflectedType& reflectedType,
@@ -568,7 +588,7 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     if (nullptr == pCompiler) { return nullptr; }
 
     shaderc::PreprocessedSourceCompilationResult preprocessedSourceCompilationResult =
-        pCompiler->PreprocessGlsl(shaderContent, (shaderc_shader_kind)shaderType, shaderName.c_str(), options);
+        pCompiler->PreprocessGlsl(shaderContent, ToShaderKind(shaderType), shaderName.c_str(), options);
 
     if (shaderc_compilation_status_success != preprocessedSourceCompilationResult.GetCompilationStatus()) {
         if (nullptr != pShaderFeedbackWriter) {
@@ -595,7 +615,7 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     }
 
     shaderc::AssemblyCompilationResult assemblyCompilationResult = pCompiler->CompileGlslToSpvAssembly(
-        preprocessedSourceCompilationResult.begin(), (shaderc_shader_kind)shaderType, shaderName.c_str(), options);
+        preprocessedSourceCompilationResult.begin(), ToShaderKind(shaderType), shaderName.c_str(), options);
 
     if (shaderc_compilation_status_success != assemblyCompilationResult.GetCompilationStatus()) {
         apemode::LogError("ShaderCompiler: Failed to compile processed GLSL to SPV assembly: {}.",
@@ -627,7 +647,7 @@ static std::unique_ptr<apemode::shp::ICompiledShader> InternalCompile(
     }
 
     shaderc::SpvCompilationResult spvCompilationResult = pCompiler->CompileGlslToSpv(
-        preprocessedSourceCompilationResult.begin(), (shaderc_shader_kind)shaderType, shaderName.c_str(), options);
+        preprocessedSourceCompilationResult.begin(), ToShaderKind(shaderType), shaderName.c_str(), options);
 
     if (shaderc_compilation_status_success != spvCompilationResult.GetCompilationStatus()) {
         if (nullptr != pShaderFeedbackWriter) {

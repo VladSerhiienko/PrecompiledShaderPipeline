@@ -2,3 +2,4 @@ build_appleclang_xcode
 .DS_Store
 dependencies
 assets/shaders/Viewer.cso.d
+bin/macOS/log*

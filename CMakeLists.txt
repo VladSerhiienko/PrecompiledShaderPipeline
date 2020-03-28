@@ -90,51 +90,35 @@ message(STATUS "spdlog_source_dir = ${spdlog_source_dir}")
 #
 #
 # eastl
-#
+# via submodules
 #
 
-# ExternalProject_Add(
-#     eastl
-#     GIT_REPOSITORY "git@github.com:electronicarts/EASTL.git"
-#     GIT_TAG "master"
-#     GIT_SUBMODULES test/packages/EABase test/packages/EAAssert test/packages/EAMain test/packages/EAStdC test/packages/EATest test/packages/EAThread
-#     UPDATE_COMMAND ""
-#     PATCH_COMMAND ""
-#     SOURCE_DIR "${CMAKE_SOURCE_DIR}/dependencies/eastl"
-#     CMAKE_ARGS ${default_cmake_args} -DEASTL_BUILD_TESTS:BOOL=TRUE
-#                                      -DEASTL_BUILD_BENCHMARK:BOOL=TRUE
-#     TEST_COMMAND ""
-#     INSTALL_COMMAND ""
-# )
-# ExternalProject_Get_Property(eastl SOURCE_DIR)
-# ExternalProject_Get_Property(eastl BINARY_DIR)
-# set(eastl_source_dir ${SOURCE_DIR})
-# set(eastl_binary_dir ${BINARY_DIR})
-# message(STATUS "eastl_source_dir = ${eastl_source_dir}")
-# message(STATUS "eastl_binary_dir = ${eastl_binary_dir}")
 
 #
 #
-# DirectXMath
+# googletest
 #
 #
 
 ExternalProject_Add(
-    DirectXMath
-    GIT_REPOSITORY "git@github.com:VladSerhiienko/DirectXMath.git"
-    GIT_TAG "master"
-    SOURCE_DIR "${CMAKE_SOURCE_DIR}/dependencies/DirectXMath"
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
+    googletest
+    GIT_REPOSITORY "git@github.com:google/googletest.git"
+    GIT_TAG "release-1.10.0"
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/dependencies/googletest"
     UPDATE_COMMAND ""
     PATCH_COMMAND ""
+    CMAKE_ARGS ${default_cmake_args}
+    TEST_COMMAND ""
+    INSTALL_COMMAND ""
     LOG_DOWNLOAD ON
 )
 
-ExternalProject_Get_Property(DirectXMath SOURCE_DIR)
-set(DirectXMath_source_dir ${SOURCE_DIR})
-message(STATUS "DirectXMath_source_dir = ${DirectXMath_source_dir}")
+ExternalProject_Get_Property(googletest SOURCE_DIR)
+ExternalProject_Get_Property(googletest BINARY_DIR)
+set(googletest_source_dir ${SOURCE_DIR})
+set(googletest_binary_dir ${BINARY_DIR})
+message(STATUS "googletest_source_dir = ${googletest_source_dir}")
+message(STATUS "googletest_binary_dir = ${googletest_binary_dir}")
 
 #
 #
@@ -328,13 +312,37 @@ endif()
 #
 #
 
-add_executable(
-    PrecompiledShaderPipeline
-    ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.Vulkan.h
-    ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.Vulkan.cpp
-    ${CMAKE_SOURCE_DIR}/src/shaderc/main.cpp
-    # ${CMAKE_SOURCE_DIR}/src/apemode/platform/memory/MemoryManager.cpp
-    # ${CMAKE_SOURCE_DIR}/src/apemode/platform/memory/MemoryManager.h
+add_library(
+    ShaderCompilerLibrary
+    STATIC
+    ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.h
+    ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompiler.cpp
+    )
+
+target_include_directories(
+    ShaderCompilerLibrary
+    PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/shaderc
+    ${CMAKE_SOURCE_DIR}/dependencies/argh
+    ${CMAKE_SOURCE_DIR}/dependencies/spdlog/include
+    ${CMAKE_SOURCE_DIR}/dependencies/cpp-taskflow
+    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/libshaderc/include
+    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross
+    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross/include
+    )
+
+add_dependencies(
+    ShaderCompilerLibrary
+    shaderc
+    spdlog
+    taskflow
+    )
+
+add_library(
+    PrecompiledShaderPipelineLibrary
+    STATIC
+    ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompilerApp.cpp
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.cpp
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.h
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/AppState.cpp
@@ -342,19 +350,10 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/IAssetManager.h
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/CityHash.cpp
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/CityHash.h
-    # ${CMAKE_SOURCE_DIR}/submodules/eastl/source/allocator_eastl.cpp
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/assert.cpp
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/fixed_pool.cpp
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/hashtable.cpp	
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/intrusive_list.cpp
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/numeric_limits.cpp
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/red_black_tree.cpp
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/string.cpp
-	# ${CMAKE_SOURCE_DIR}/submodules/eastl/source/thread_support.cpp
     )
 
 target_include_directories(
-    PrecompiledShaderPipeline
+    PrecompiledShaderPipelineLibrary
     PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/generated
@@ -364,32 +363,79 @@ target_include_directories(
     ${CMAKE_SOURCE_DIR}/dependencies/cpp-taskflow
     ${CMAKE_SOURCE_DIR}/dependencies/json/include
     ${CMAKE_SOURCE_DIR}/dependencies/flatbuffers/include
-    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/libshaderc/include
-    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross
-    ${CMAKE_SOURCE_DIR}/dependencies/shaderc/third_party/spirv-cross/include
-    ${CMAKE_SOURCE_DIR}/submodules/eastl/include
-    ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EAAssert/include
-    ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EABase/include
-    ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EABase/include/Common
-    ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EAMain/include
-    ${CMAKE_SOURCE_DIR}/submodules/eastl/test/packages/EAStdC/include
+    )
+
+add_dependencies(
+    PrecompiledShaderPipelineLibrary
+    ShaderCompilerLibrary
+    shaderc
+    json
+    flatbuffers
+    argh
+    spdlog
+    taskflow
+)
+
+add_executable(
+    PrecompiledShaderPipeline
+    ${CMAKE_SOURCE_DIR}/src/main.cpp
+    )
+
+target_include_directories(
+    PrecompiledShaderPipeline
+    PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
     )
 
 add_dependencies(
     PrecompiledShaderPipeline
+    PrecompiledShaderPipelineLibrary
+    ShaderCompilerLibrary
     shaderc
     json
     flatbuffers
-    DirectXMath
+    argh
+    spdlog
+    taskflow
+)
+
+add_executable(
+    PrecompiledShaderPipelineTests
+    ${CMAKE_SOURCE_DIR}/tests/src/main.cpp
+    )
+
+target_include_directories(
+    PrecompiledShaderPipelineTests
+    PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/tests/src
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/apemode
+    ${CMAKE_SOURCE_DIR}/src/apemode/platform
+    ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared
+    ${CMAKE_SOURCE_DIR}/dependencies/flatbuffers/include
+    ${CMAKE_SOURCE_DIR}/dependencies/googletest/googlemock/include
+    ${CMAKE_SOURCE_DIR}/dependencies/googletest/googletest/include
+    )
+
+add_dependencies(
+    PrecompiledShaderPipelineTests
+    PrecompiledShaderPipelineLibrary
+    ShaderCompilerLibrary
+    shaderc
+    json
+    flatbuffers
+    googletest
     argh
     spdlog
     taskflow
 )
 
 if (APPLE )
-    target_link_libraries(
-        PrecompiledShaderPipeline
+    set(PrecompiledShaderPipelineLibraries
 
+        debug ${CMAKE_BINARY_DIR}/Debug/libShaderCompilerLibrary.a
+        debug ${CMAKE_BINARY_DIR}/Debug/libPrecompiledShaderPipelineLibrary.a
         debug ${flatbuffers_binary_dir}/Debug/libflatbuffers.a
         debug ${shaderc_binary_dir}/libshaderc/Debug/libshaderc_combined.a
         debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-util.a
@@ -401,8 +447,9 @@ if (APPLE )
         debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-msl.a
         debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/libspirv-cross-hlsl.a
 
+        optimized ${CMAKE_BINARY_DIR}/Release/libShaderCompilerLibrary.a
+        optimized ${CMAKE_BINARY_DIR}/Release/libPrecompiledShaderPipelineLibrary.a
         optimized ${flatbuffers_binary_dir}/Release/libflatbuffers.a
-        optimized ${shaderc_binary_dir}/libshaderc/Release/libshaderc_combined.a
         optimized ${shaderc_binary_dir}/libshaderc/Release/libshaderc_combined.a
         optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-util.a
         optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/libspirv-cross-glsl.a
@@ -418,6 +465,34 @@ if (APPLE )
         objc
         iconv
         )
+
+    set(PrecompiledShaderPipelineTestsLibraries
+
+        debug ${googletest_binary_dir}/lib/Debug/libgmockd.a
+        debug ${googletest_binary_dir}/lib/Debug/libgtestd.a
+        debug ${googletest_binary_dir}/lib/Debug/libgtest_maind.a
+
+        optimized ${googletest_binary_dir}/lib/Release/libgmock.a
+        optimized ${googletest_binary_dir}/lib/Release/libgtest.a
+        optimized ${googletest_binary_dir}/lib/Release/libgtest_main.a
+
+        dl
+        stdc++
+        objc
+        iconv
+        )
+    
+    target_link_libraries(
+        PrecompiledShaderPipeline
+        ${PrecompiledShaderPipelineLibraries}
+        )
+
+    target_link_libraries(
+        PrecompiledShaderPipelineTests
+        ${PrecompiledShaderPipelineLibraries}
+        ${PrecompiledShaderPipelineTestsLibraries}
+        )
+
 elseif (WIN32)
     target_link_libraries(
         PrecompiledShaderPipeline

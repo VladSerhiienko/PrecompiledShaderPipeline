@@ -7,7 +7,7 @@
 #include <iterator>
 #include <nlohmann/json.hpp>
 
-#include "ShaderCompiler.Vulkan.h"
+#include "ShaderCompiler.h"
 #include "cso_generated.h"
 
 using json = nlohmann::json;
@@ -1035,7 +1035,7 @@ std::string ToPrettySizeString(size_t size) {
 }
 // clang-format on
 
-int main(int argc, char** argv) {
+int BuildLibrary(int argc, char** argv) {
     /* Input parameters:
      * --assets-folder "/Users/vlad.serhiienko/Projects/Home/Viewer/assets"
      * --cso-json-file "/Users/vlad.serhiienko/Projects/Home/Viewer/assets/shaders/Viewer.cso.json"

@@ -22,10 +22,15 @@ jobs:
 
     - name: Build and install
       run: |
-        sudo easy_install pip
-        pip install future
         git config --global url."https://github.com/".insteadOf git@github.com:
         git config --global url."https://".insteadOf git://
-        cmake -G Xcode -H. -Bbuild_appleclang_xcode
-        xcodebuild -project ./build_appleclang_xcode/PrecompiledShaderPipeline.xcodeproj -configuration Release
+        sh cso-install-required-python.sh
+        sh cso-macos-xcode-build-install.sh
+        sh cso-update-binaries-macos.sh
+
+    - name: Run tests
+      run: |
+        cd bin/macOS
+        ./PrecompiledShaderPipelineTests
+        cd ../..
 
