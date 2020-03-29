@@ -335,6 +335,7 @@ target_include_directories(
 add_dependencies(
     ShaderCompilerLibrary
     shaderc
+    argh
     spdlog
     taskflow
     )

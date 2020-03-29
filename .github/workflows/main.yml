@@ -30,7 +30,5 @@ jobs:
 
     - name: Run tests
       run: |
-        cd bin/macOS
-        ./PrecompiledShaderPipelineTests
-        cd ../..
+        sh cso-run-all-tests.sh
 
