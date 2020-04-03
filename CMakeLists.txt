@@ -9,6 +9,7 @@ message(STATUS "CMAKE_SYSTEM_PROCESSOR = ${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS "CMAKE_SYSTEM = ${CMAKE_SYSTEM}")
 message(STATUS "CMAKE_SOURCE_DIR = ${CMAKE_SOURCE_DIR}")
 message(STATUS "CMAKE_BINARY_DIR = ${CMAKE_BINARY_DIR}")
+message(STATUS "CMAKE_GENERATOR = ${CMAKE_GENERATOR}")
 
 #
 #
@@ -22,10 +23,13 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG -DNV_EXTENSIONS=1")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DNDEBUG -DNV_EXTENSIONS=1")
 
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-std=c++17" COMPILER_SUPPORTS_CXX17)
-check_cxx_compiler_flag("-std=c++11" COMPILER_SUPPORTS_CXX11)
+CHECK_CXX_COMPILER_FLAG("/std:c++latest" COMPILER_SUPPORTS_CXXLATEST)
+CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 
-if(COMPILER_SUPPORTS_CXX17)
+if (COMPILER_SUPPORTS_CXXLATEST)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++latest")
+elseif(COMPILER_SUPPORTS_CXX17)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 elseif(COMPILER_SUPPORTS_CXX11)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -35,7 +39,7 @@ get_filename_component(BUILD_FOLDER_SUFFIX ${CMAKE_BINARY_DIR} NAME)
 message(STATUS "BUILD_FOLDER_SUFFIX = ${BUILD_FOLDER_SUFFIX}")
 
 if (WIN32)
-    set(default_cmake_args -G "Visual Studio 15 2017 Win64" -B${BUILD_FOLDER_SUFFIX} "-H.")
+    set(default_cmake_args -G "${CMAKE_GENERATOR}")
 elseif(APPLE)
     set(default_cmake_args -G "Xcode") # -B${BUILD_FOLDER_SUFFIX} -H.)
 else()
@@ -107,7 +111,7 @@ ExternalProject_Add(
     SOURCE_DIR "${CMAKE_SOURCE_DIR}/dependencies/googletest"
     UPDATE_COMMAND ""
     PATCH_COMMAND ""
-    CMAKE_ARGS ${default_cmake_args}
+    CMAKE_ARGS ${default_cmake_args} -Dgtest_force_shared_crt:BOOL=ON
     TEST_COMMAND ""
     INSTALL_COMMAND ""
     LOG_DOWNLOAD ON
@@ -432,7 +436,7 @@ add_dependencies(
     taskflow
 )
 
-if (APPLE )
+if (APPLE)
     set(PrecompiledShaderPipelineLibraries
 
         debug ${CMAKE_BINARY_DIR}/Debug/libShaderCompilerLibrary.a
@@ -495,11 +499,57 @@ if (APPLE )
         )
 
 elseif (WIN32)
-    target_link_libraries(
-        PrecompiledShaderPipeline
-        ${shaderc_binary_dir}/libshaderc${CONFIGURATION_SUFFIX}/shaderc_combined.lib
-        ${flatbuffers_binary_dir}${CONFIGURATION_SUFFIX}/flatbuffers.lib
-        )
+set(PrecompiledShaderPipelineLibraries
+
+    debug ${CMAKE_BINARY_DIR}/Debug/ShaderCompilerLibrary.lib
+    debug ${CMAKE_BINARY_DIR}/Debug/PrecompiledShaderPipelineLibrary.lib
+    debug ${flatbuffers_binary_dir}/Debug/flatbuffers.lib
+    debug ${shaderc_binary_dir}/libshaderc/Debug/shaderc_combined.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-utild.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-glsld.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-reflectd.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-cd.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-cppd.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-cored.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-msld.lib
+    debug ${shaderc_binary_dir}/third_party/spirv-cross/Debug/spirv-cross-hlsld.lib
+
+    optimized ${CMAKE_BINARY_DIR}/Release/ShaderCompilerLibrary.lib
+    optimized ${CMAKE_BINARY_DIR}/Release/PrecompiledShaderPipelineLibrary.lib
+    optimized ${flatbuffers_binary_dir}/Release/flatbuffers.lib
+    optimized ${shaderc_binary_dir}/libshaderc/Release/shaderc_combined.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-util.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-glsl.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-reflect.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-c.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-cpp.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-core.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-msl.lib
+    optimized ${shaderc_binary_dir}/third_party/spirv-cross/Release/spirv-cross-hlsl.lib
+    )
+
+set(PrecompiledShaderPipelineTestsLibraries
+
+    debug ${googletest_binary_dir}/lib/Debug/gmockd.lib
+    debug ${googletest_binary_dir}/lib/Debug/gtestd.lib
+    debug ${googletest_binary_dir}/lib/Debug/gtest_maind.lib
+
+    optimized ${googletest_binary_dir}/lib/Release/gmock.lib
+    optimized ${googletest_binary_dir}/lib/Release/gtest.lib
+    optimized ${googletest_binary_dir}/lib/Release/gtest_main.lib
+    )
+
+target_link_libraries(
+    PrecompiledShaderPipeline
+    ${PrecompiledShaderPipelineLibraries}
+    )
+
+target_link_libraries(
+    PrecompiledShaderPipelineTests
+    ${PrecompiledShaderPipelineLibraries}
+    ${PrecompiledShaderPipelineTestsLibraries}
+    )
+
 elseif (UNIX)
     target_link_libraries(
         PrecompiledShaderPipeline

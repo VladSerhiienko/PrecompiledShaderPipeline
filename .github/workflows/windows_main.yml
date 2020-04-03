@@ -1,4 +1,4 @@
-name: PrecompiledShaderPipeline macOS
+name: PrecompiledShaderPipeline Windows
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -24,11 +24,15 @@ jobs:
       run: |
         git config --global url."https://github.com/".insteadOf git@github.com:
         git config --global url."https://".insteadOf git://
-        sh cso-install-required-python.sh
-        sh cso-macos-xcode-build-install.sh
-        sh cso-update-binaries-macos.sh
+        python --version
+        ls
+        .\cso-install-required-python-windows.ps1
+        .\cso-build-install-windows.ps1
+        .\cso-update-binaries-windows.ps1
+      shell: powershell
 
     - name: Run tests
       run: |
-        sh cso-run-all-tests.sh
+        .\cso-run-all-tests-windows.ps1
+      shell: powershell
 

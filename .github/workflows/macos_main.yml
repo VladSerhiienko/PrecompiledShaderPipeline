@@ -1,0 +1,34 @@
+name: PrecompiledShaderPipeline macOS
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Checkout submodules
+      uses: actions/checkout@v2
+      with:
+        repository: electronicarts/EASTL
+        token: ${{ secrets.MINIMAL_PAT }}
+        path: submodules/eastl
+        ref: master
+
+    - name: Build and install
+      run: |
+        git config --global url."https://github.com/".insteadOf git@github.com:
+        git config --global url."https://".insteadOf git://
+        sh cso-install-required-python-macos.sh
+        sh cso-build-install-macos.sh
+        sh cso-update-binaries-macos.sh
+
+    - name: Run tests
+      run: |
+        sh cso-run-all-tests-macos.sh
+

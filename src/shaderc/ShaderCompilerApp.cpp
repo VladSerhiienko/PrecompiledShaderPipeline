@@ -10,6 +10,8 @@
 #include "ShaderCompiler.h"
 #include "cso_generated.h"
 
+#include <memory>
+
 using json = nlohmann::json;
 
 namespace {
@@ -137,7 +139,7 @@ struct CompiledShaderCollection {
     std::vector<HashedReflectedConstant> uniqueReflectedConstants = {};
     std::vector<HashedReflectedShader> uniqueReflectedShaders = {};
 
-    void Serialize(flatbuffers::FlatBufferBuilder& fbb, const std::vector<CompiledShaderVariant>& variants) {
+    void Serialize(flatbuffers::FlatBufferBuilder& fbb, const std::vector<std::unique_ptr<CompiledShaderVariant>>& variants) {
         Pack(variants);
 
         // clang-format off
@@ -327,8 +329,9 @@ struct CompiledShaderCollection {
         FinishCompiledShaderCollectionBuffer(fbb, collectionOffset);
     }
 
-    void Pack(const std::vector<CompiledShaderVariant>& variants) {
-        for (auto& cso : variants) {
+    void Pack(const std::vector<std::unique_ptr<CompiledShaderVariant>>& variants) {
+        for (auto& csoPtr : variants) {
+            auto& cso = *csoPtr;
             HashedCompiledShader compiledShader = {};
             compiledShader.CompiledIndex = GetBufferIndex(cso.Compiled);
             compiledShader.GLSLIndex = GetStringIndex(cso.CompiledGLSL);
@@ -816,7 +819,7 @@ ShaderCompilerMacroDefinitionCollection GetMacroGroup(const json& groupJson) {
     return group;
 }
 
-std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IShaderCompiler& shaderCompiler,
+std::unique_ptr<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IShaderCompiler& shaderCompiler,
                                                           const std::map<std::string, std::string>& macroDefinitions,
                                                           const std::string& shaderType,
                                                           const std::string& srcFile,
@@ -824,7 +827,9 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
     std::string macrosString = GetMacrosString(macroDefinitions);
     apemode::LogInfo("Variant: asset=\"{}\", definitions=\"{}\"", srcFile, macrosString);
 
-    CompiledShaderVariant cso = {};
+    auto csoPtr = std::make_unique<CompiledShaderVariant>();
+    auto& cso = *csoPtr;
+    // CompiledShaderVariant cso = {};
     cso.Definitions = macrosString;
 
     ShaderCompilerMacroDefinitionCollection concreteMacros;
@@ -902,13 +907,13 @@ std::optional<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IS
                               false);
         // clang-format on
 
-        return cso;
+        return csoPtr;
     }
 
     return {};
 }
 
-void CompileShaderVariantsRecursively(std::vector<CompiledShaderVariant>& csos,
+void CompileShaderVariantsRecursively(std::vector<std::unique_ptr<CompiledShaderVariant>>& csos,
                                       const apemode::shp::IShaderCompiler& shaderCompiler,
                                       const ShaderCompilerMacroGroupCollection& macroGroups,
                                       const size_t macroGroupIndex,
@@ -938,8 +943,9 @@ void CompileShaderVariantsRecursively(std::vector<CompiledShaderVariant>& csos,
         // apemode::LogInfo("Sending to compiler ...");
 
         if (auto cso = CompileShaderVariant(shaderCompiler, macroDefinitions, shaderType, srcFile, outputFolder)) {
-            csos.emplace_back(std::move(cso).value());
+            csos.emplace_back(std::move(cso));
         }
+
         return;
     }
 
@@ -951,7 +957,7 @@ void CompileShaderVariantsRecursively(std::vector<CompiledShaderVariant>& csos,
     }
 }
 
-void CompileShaderVariantsRecursively(std::vector<CompiledShaderVariant>& csos,
+void CompileShaderVariantsRecursively(std::vector<std::unique_ptr<CompiledShaderVariant>>& csos,
                                       const apemode::shp::IShaderCompiler& shaderCompiler,
                                       const ShaderCompilerMacroGroupCollection& macroGroups,
                                       const std::string& shaderType,
@@ -962,11 +968,12 @@ void CompileShaderVariantsRecursively(std::vector<CompiledShaderVariant>& csos,
         csos, shaderCompiler, macroGroups, 0, shaderType, srcFile, outputFolder, macroIndices);
 }
 
-std::vector<CompiledShaderVariant> CompileShader(const apemode::platform::shared::AssetManager& assetManager,
+std::vector<std::unique_ptr<CompiledShaderVariant>> CompileShader(
+    const apemode::platform::shared::AssetManager& assetManager,
                                                  apemode::shp::IShaderCompiler& shaderCompiler,
                                                  const json& commandJson,
                                                  const std::string& outputFolder) {
-    std::vector<CompiledShaderVariant> csos;
+    std::vector<std::unique_ptr<CompiledShaderVariant>> csos;
 
     assert(commandJson["srcFile"].is_string());
     std::string srcFile = commandJson["srcFile"].get<std::string>();
@@ -1004,7 +1011,7 @@ std::vector<CompiledShaderVariant> CompileShader(const apemode::platform::shared
             const std::string shaderType = commandJson["shaderType"].get<std::string>();
 
             if (auto cso = CompileShaderVariant(shaderCompiler, macroDefinitions, shaderType, srcFile, outputFolder)) {
-                csos.emplace_back(std::move(cso).value());
+                csos.emplace_back(std::move(cso));
             }
         }
 
@@ -1114,12 +1121,12 @@ int BuildLibrary(int argc, char** argv) {
     shaderCompiler->SetShaderFileReader(&shaderCompilerFileReader);
     shaderCompiler->SetShaderFeedbackWriter(&shaderFeedbackWriter);
 
-    std::vector<CompiledShaderVariant> compiledShaders;
+    std::vector<std::unique_ptr<CompiledShaderVariant>> compiledShaders;
 
     // clang-format off
     const json& commandsJson = csoJson["commands"];
     for (const auto& commandJson : commandsJson) {
-        std::vector<CompiledShaderVariant> variants = CompileShader(assetManager, *shaderCompiler, commandJson, outputFolder);
+        std::vector<std::unique_ptr<CompiledShaderVariant>> variants = CompileShader(assetManager, *shaderCompiler, commandJson, outputFolder);
         compiledShaders.insert(compiledShaders.end(), std::make_move_iterator(variants.begin()), std::make_move_iterator(variants.end()));
     }
     // clang-format on
