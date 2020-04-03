@@ -24,11 +24,11 @@ jobs:
       run: |
         git config --global url."https://github.com/".insteadOf git@github.com:
         git config --global url."https://".insteadOf git://
-        sh cso-install-required-python.sh
-        sh cso-macos-xcode-build-install.sh
+        sh cso-install-required-python-macos.sh
+        sh cso-build-install-macos.sh
         sh cso-update-binaries-macos.sh
 
     - name: Run tests
       run: |
-        sh cso-run-all-tests.sh
+        sh cso-run-all-tests-macos.sh
 

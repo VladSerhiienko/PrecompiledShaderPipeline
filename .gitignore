@@ -3,3 +3,5 @@ build_appleclang_xcode
 dependencies
 assets/shaders/Viewer.cso.d
 bin/macOS/log*
+bin/Windows/log*
+build_msbuild2019_win64

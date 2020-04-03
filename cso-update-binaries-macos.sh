@@ -1,5 +1,4 @@
-rm -rf bin
-mkdir bin
+rm -rf bin/macOS
 mkdir bin/macOS
 cp ./build_appleclang_xcode/Release/PrecompiledShaderPipeline ./bin/macOS/PrecompiledShaderPipeline
 cp ./build_appleclang_xcode/Release/PrecompiledShaderPipelineTests ./bin/macOS/PrecompiledShaderPipelineTests
