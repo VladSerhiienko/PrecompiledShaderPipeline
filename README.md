@@ -31,6 +31,8 @@
 
 ![PrecompiledShaderPipeline macOS](https://github.com/VladSerhiienko/PrecompiledShaderPipeline/workflows/PrecompiledShaderPipeline%20macOS/badge.svg?branch=master&event=push)
 
+![PrecompiledShaderPipeline Windows](https://github.com/VladSerhiienko/PrecompiledShaderPipeline/workflows/PrecompiledShaderPipeline%20Windows/badge.svg?branch=master&event=push)
+
 Offline shader compilation for different platforms with SPIR-V reflection.
 Attached SPIR-V reflection contains information about stage inputs and outputs for matching shader stages,
 constants, samplers, textures, buffers, and their states. For active buffer bindings and push constants,
