@@ -719,7 +719,7 @@ public:
             auto dir = std::filesystem::path(Paths.back());
             auto file = dir / InFilePath;
 
-            OutFileFullPath = std::filesystem::absolute(file);
+            OutFileFullPath = std::filesystem::absolute(file).string();
             if (std::filesystem::exists(file)) {
                 // TODO: ReadTxtFile should return a string.
                 OutFileContent = ReadTextFile(file.string());
@@ -777,7 +777,7 @@ public:
 
 void AssertContainsWhitespace(const std::string& s) {
     bool containsWhitespace = false;
-    for (auto c : s) { containsWhitespace |= isspace(c); }
+    for (auto c : s) { containsWhitespace |= isspace(c) != 0; }
 
     assert(!containsWhitespace);
     if (containsWhitespace) { apemode::LogError("Should not contain whitespace, '{}'", s); }
@@ -1294,7 +1294,7 @@ int BuildLibrary(int argc, char** argv) {
 
     constexpr bool exportHeader = true;
     if constexpr (exportHeader) {
-        std::string name = std::filesystem::path(outputFile).filename();
+        std::string name = std::filesystem::path(outputFile).filename().string();
         ReplaceAll(name, ".", "_");
         ReplaceAll(name, " ", "_");
         ReplaceAll(name, "/", "_");

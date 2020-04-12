@@ -7,3 +7,4 @@ tests/assets/shaders/*.hash.bin
 bin/macOS/log*
 bin/Windows/log*
 build_msbuild2019_win64
+build_llvm_msbuild2019_win64
