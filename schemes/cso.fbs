@@ -160,12 +160,15 @@ table ReflectedShader {
 }
 
 struct CompiledShader {
-    preprocessed_string_index : uint;
-    assembly_string_index : uint;
-    compiled_glsl_string_index : uint;
-    compiled_msl_string_index : uint;
     compiled_buffer_index : uint;
     reflected_shader_index : uint;
+    preprocessed_string_index : uint;
+    assembly_string_index : uint;
+    compiled_glsl_vulkan_string_index : uint;
+    compiled_glsl_es2_string_index : uint;
+    compiled_glsl_es3_string_index : uint;
+    compiled_msl_ios_string_index : uint;
+    compiled_msl_macos_string_index : uint;
     type : IR;
 }
 

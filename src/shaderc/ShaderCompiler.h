@@ -128,16 +128,17 @@ struct ReflectedShader {
     std::vector<ReflectedResource> SeparateSamplers = {};
 };
 
+enum class CompiledShaderTarget { Preprocessed = 0, Assembly, Vulkan, ES2, ES3, iOS, macOS, Count };
+
 class ICompiledShader {
 public:
     virtual ~ICompiledShader() = default;
 
     virtual const uint8_t* GetBytePtr() const = 0;
     virtual size_t GetByteCount() const = 0;
-    virtual std::string_view GetPreprocessedSrc() const = 0;
-    virtual std::string_view GetAssemblySrc() const = 0;
-    virtual std::string_view GetCompiledGLSL() const = 0;
-    virtual std::string_view GetCompiledMSL() const = 0;
+    virtual std::string_view GetSourceFor(CompiledShaderTarget target) const = 0;
+    virtual std::string_view GetErrorFor(CompiledShaderTarget target) const = 0;
+    virtual bool HasSourceFor(CompiledShaderTarget target) const = 0;
     virtual ReflectedShader&& GetReflection() = 0;
 
     // clang-format off

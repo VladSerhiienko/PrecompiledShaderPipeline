@@ -1,10 +1,10 @@
 
 #include <PrecompiledShaderPipelineUtils.h>
+#include <Viewer.cso.h>
 #include <cso_generated.h>
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
-#include <Viewer.cso.h>
 #include <array>
 
 namespace {
@@ -18,15 +18,12 @@ public:
         pCollection = cso::GetCompiledShaderCollection(get_viewer_cso_buffer_view().data());
         EXPECT_TRUE(pCollection);
     }
-    
-    void TearDown() override {
-        pCollection = nullptr;
-    }
+
+    void TearDown() override { pCollection = nullptr; }
 
 protected:
     const cso::CompiledShaderCollection* pCollection = nullptr;
 };
-
 
 TEST_F(EmbeddedPrecompiledShaderPipelineTest, CheckConstantCountUsingUtilityClasses) {
     using namespace cso::utils;
@@ -42,7 +39,6 @@ TEST_F(EmbeddedPrecompiledShaderPipelineTest, CheckConstantCountUsingUtilityClas
 }
 
 } // namespace
-
 
 #define viewer_cso_paste_implementation
 #include <Viewer.cso.h>
