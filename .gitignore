@@ -1,10 +1,7 @@
 build_appleclang_xcode
 .DS_Store
 dependencies
-assets/shaders/Viewer.cso.d
-tests/assets/shaders/Viewer.cso.d
-tests/assets/shaders/*.cso
-tests/assets/shaders/*.cso.h
+tests/assets/shaders/*.cso.d
 tests/assets/shaders/*.hash.txt
 tests/assets/shaders/*.hash.bin
 bin/macOS/log*
