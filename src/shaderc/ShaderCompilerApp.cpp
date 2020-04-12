@@ -1,18 +1,37 @@
 
 #include <apemode/platform/AppState.h>
 #include <apemode/platform/CityHash.h>
-#include <apemode/platform/shared/AssetManager.h>
 #include <flatbuffers/util.h>
 
+#include <cstdint>
+#include <filesystem>
 #include <iterator>
+#include <memory>
 #include <nlohmann/json.hpp>
 
 #include "ShaderCompiler.h"
 #include "cso_generated.h"
 
-#include <memory>
-
 using json = nlohmann::json;
+
+std::string ReadTextFile(const std::string& filePath) {
+    std::string assetContentBuffer;
+
+    FILE* pFile = fopen(filePath.c_str(), "rb");
+    if (!pFile) return {};
+
+    fseek(pFile, 0, SEEK_END);
+    const size_t size = static_cast<size_t>(ftell(pFile));
+    fseek(pFile, 0, SEEK_SET);
+
+    assetContentBuffer.resize(size);
+    if (assetContentBuffer.empty()) return {};
+
+    fread(assetContentBuffer.data(), size, 1, pFile);
+    fclose(pFile);
+
+    return assetContentBuffer;
+}
 
 namespace {
 struct CompiledShaderVariant {
@@ -118,13 +137,21 @@ struct HashedReflectedShader : Hashed {
     std::vector<uint32_t> UniformBufferIndices = {};
     std::vector<uint32_t> PushConstantBufferIndices = {};
     std::vector<uint32_t> SampledImageIndices = {};
-    std::vector<uint32_t> SubpassImageIndices = {};
+    std::vector<uint32_t> SubpassInputIndices = {};
     std::vector<uint32_t> SeparateImageIndices = {};
     std::vector<uint32_t> SeparateSamplerIndices = {};
     std::vector<uint32_t> StorageImageIndices = {};
     std::vector<uint32_t> StorageBufferIndices = {};
+
+    std::vector<uint32_t> StageInputStateIndices = {};
+    std::vector<uint32_t> StageOutputStateIndices = {};
     std::vector<uint32_t> UniformBufferStateIndices = {};
     std::vector<uint32_t> PushConstantBufferStateIndices = {};
+    std::vector<uint32_t> SampledImageStateIndices = {};
+    std::vector<uint32_t> SubpassInputStateIndices = {};
+    std::vector<uint32_t> SeparateImageStateIndices = {};
+    std::vector<uint32_t> SeparateSamplerStateIndices = {};
+    std::vector<uint32_t> StorageImageStateIndices = {};
     std::vector<uint32_t> StorageBufferStateIndices = {};
 };
 
@@ -139,7 +166,8 @@ struct CompiledShaderCollection {
     std::vector<HashedReflectedConstant> uniqueReflectedConstants = {};
     std::vector<HashedReflectedShader> uniqueReflectedShaders = {};
 
-    void Serialize(flatbuffers::FlatBufferBuilder& fbb, const std::vector<std::unique_ptr<CompiledShaderVariant>>& variants) {
+    void Serialize(flatbuffers::FlatBufferBuilder& fbb,
+                   const std::vector<std::unique_ptr<CompiledShaderVariant>>& variants) {
         Pack(variants);
 
         // clang-format off
@@ -252,13 +280,21 @@ struct CompiledShaderCollection {
             auto uniformBufferIndicesOffset = fbb.CreateVector(s.UniformBufferIndices);
             auto pushConstantBufferIndicesOffset = fbb.CreateVector(s.PushConstantBufferIndices);
             auto sampleImageIndicesOffset = fbb.CreateVector(s.SampledImageIndices);
-            auto subpassInputIndicesOffset = fbb.CreateVector(s.SubpassImageIndices);
+            auto subpassInputIndicesOffset = fbb.CreateVector(s.SubpassInputIndices);
             auto separateImageIndicesOffset = fbb.CreateVector(s.SeparateImageIndices);
             auto separateSamplerIndicesOffset = fbb.CreateVector(s.SeparateSamplerIndices);
             auto storageImageIndicesOffset = fbb.CreateVector(s.StorageImageIndices);
             auto storageBufferIndicesOffset = fbb.CreateVector(s.StorageBufferIndices);
+
+            auto stageInputStateIndicesOffset = fbb.CreateVector(s.StageInputStateIndices);
+            auto stageOutputStateIndicesOffset = fbb.CreateVector(s.StageOutputStateIndices);
             auto uniformBufferStateIndicesOffset = fbb.CreateVector(s.UniformBufferStateIndices);
             auto pushConstantBufferStateIndicesOffset = fbb.CreateVector(s.PushConstantBufferStateIndices);
+            auto sampleImageStateIndicesOffset = fbb.CreateVector(s.SampledImageStateIndices);
+            auto subpassInputStateIndicesOffset = fbb.CreateVector(s.SubpassInputStateIndices);
+            auto separateImageStateIndicesOffset = fbb.CreateVector(s.SeparateImageStateIndices);
+            auto separateSamplerStateIndicesOffset = fbb.CreateVector(s.SeparateSamplerStateIndices);
+            auto storageImageStateIndicesOffset = fbb.CreateVector(s.StorageImageStateIndices);
             auto storageBufferStateIndicesOffset = fbb.CreateVector(s.StorageBufferStateIndices);
 
             reflectedShaderOffsets.push_back(cso::CreateReflectedShader(fbb,
@@ -274,8 +310,15 @@ struct CompiledShaderCollection {
                                                                         separateSamplerIndicesOffset,
                                                                         storageImageIndicesOffset,
                                                                         storageBufferIndicesOffset,
+                                                                        stageInputStateIndicesOffset,
+                                                                        stageOutputStateIndicesOffset,
                                                                         uniformBufferStateIndicesOffset,
                                                                         pushConstantBufferStateIndicesOffset,
+                                                                        sampleImageStateIndicesOffset,
+                                                                        subpassInputStateIndicesOffset,
+                                                                        separateImageStateIndicesOffset,
+                                                                        separateSamplerStateIndicesOffset,
+                                                                        storageImageStateIndicesOffset,
                                                                         storageBufferStateIndicesOffset));
         }
 
@@ -409,8 +452,10 @@ struct CompiledShaderCollection {
         // clang-format on
 
         apemode::CityHasher64 city64 = {};
-        city64.CombineWithArray(reflectedResource.ActiveRanges.data(), reflectedResource.ActiveRanges.size());
         city64.CombineWith(reflectedState.bIsActive);
+        if (!reflectedResource.ActiveRanges.empty()) {
+            city64.CombineWithArray(reflectedResource.ActiveRanges.data(), reflectedResource.ActiveRanges.size());
+        }
 
         reflectedState.Hash = city64;
         return reflectedState;
@@ -521,6 +566,22 @@ struct CompiledShaderCollection {
     uint32_t GetReflectedConstantIndex(const HashedReflectedConstant& reflected) {
         return TAddIfMissingAndGetIndexByHash(uniqueReflectedConstants, reflected);
     }
+
+    void AddReflectedResources(const std::vector<apemode::shp::ReflectedResource>& reflectedResources,
+                               std::vector<uint32_t>& resourceIndices,
+                               std::vector<uint32_t>& resourceStateIndices,
+                               apemode::CityHasher64& city64) {
+        for (auto& reflectedResource : reflectedResources) {
+            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
+            resourceIndices.push_back(GetReflectedResourceIndex(hashedResource));
+            city64.CombineWith(hashedResource.Hash);
+
+            HashedReflectedResourceState hashedState = GetHashedReflectedResourceState(reflectedResource);
+            resourceStateIndices.push_back(GetReflectedResourceStateIndex(hashedState));
+            city64.CombineWith(hashedState.Hash);
+        }
+    }
+
     HashedReflectedShader GetHashedReflectionShader(const apemode::shp::ReflectedShader& reflectedShader) {
         HashedReflectedShader hashedReflectedShader = {};
         apemode::CityHasher64 city64 = {};
@@ -533,68 +594,53 @@ struct CompiledShaderCollection {
             hashedReflectedShader.ConstantIndices.push_back(GetReflectedConstantIndex(hashedConstant));
             city64.CombineWith(hashedConstant.Hash);
         }
-        for (auto& reflectedResource : reflectedShader.StageInputs) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.StageInputIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.StageOutputs) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.StageOutputIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.UniformBuffers) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.UniformBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
 
-            HashedReflectedResourceState state = GetHashedReflectedResourceState(reflectedResource);
-            hashedReflectedShader.UniformBufferStateIndices.push_back(GetReflectedResourceStateIndex(state));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.PushConstantBuffers) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.PushConstantBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
+        AddReflectedResources(reflectedShader.StageInputs,
+                              hashedReflectedShader.StageInputIndices,
+                              hashedReflectedShader.StageInputStateIndices,
+                              city64);
+        AddReflectedResources(reflectedShader.StageOutputs,
+                              hashedReflectedShader.StageOutputIndices,
+                              hashedReflectedShader.StageOutputStateIndices,
+                              city64);
+        AddReflectedResources(reflectedShader.UniformBuffers,
+                              hashedReflectedShader.UniformBufferIndices,
+                              hashedReflectedShader.UniformBufferStateIndices,
+                              city64);
+        AddReflectedResources(reflectedShader.PushConstantBuffers,
+                              hashedReflectedShader.PushConstantBufferIndices,
+                              hashedReflectedShader.PushConstantBufferStateIndices,
+                              city64);
 
-            HashedReflectedResourceState state = GetHashedReflectedResourceState(reflectedResource);
-            hashedReflectedShader.UniformBufferStateIndices.push_back(GetReflectedResourceStateIndex(state));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.SampledImages) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.SampledImageIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.SubpassInputs) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.SubpassImageIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.SeparateImages) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.SeparateImageIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.SeparateSamplers) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.SeparateSamplerIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.StorageImages) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.StorageImageIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
-        }
-        for (auto& reflectedResource : reflectedShader.StorageBuffers) {
-            HashedReflectedResource hashedResource = GetHashedReflectedResource(reflectedResource);
-            hashedReflectedShader.StorageBufferIndices.push_back(GetReflectedResourceIndex(hashedResource));
-            city64.CombineWith(hashedResource.Hash);
+        AddReflectedResources(reflectedShader.SampledImages,
+                              hashedReflectedShader.SampledImageIndices,
+                              hashedReflectedShader.SampledImageStateIndices,
+                              city64);
 
-            HashedReflectedResourceState state = GetHashedReflectedResourceState(reflectedResource);
-            hashedReflectedShader.UniformBufferStateIndices.push_back(GetReflectedResourceStateIndex(state));
-            city64.CombineWith(hashedResource.Hash);
-        }
+        AddReflectedResources(reflectedShader.SubpassInputs,
+                              hashedReflectedShader.SubpassInputIndices,
+                              hashedReflectedShader.SubpassInputStateIndices,
+                              city64);
+
+        AddReflectedResources(reflectedShader.SeparateImages,
+                              hashedReflectedShader.SeparateImageIndices,
+                              hashedReflectedShader.SeparateImageStateIndices,
+                              city64);
+
+        AddReflectedResources(reflectedShader.SeparateSamplers,
+                              hashedReflectedShader.SeparateSamplerIndices,
+                              hashedReflectedShader.SeparateSamplerStateIndices,
+                              city64);
+
+        AddReflectedResources(reflectedShader.StorageImages,
+                              hashedReflectedShader.StorageImageIndices,
+                              hashedReflectedShader.StorageImageStateIndices,
+                              city64);
+
+        AddReflectedResources(reflectedShader.StorageBuffers,
+                              hashedReflectedShader.StorageBufferIndices,
+                              hashedReflectedShader.StorageBufferStateIndices,
+                              city64);
 
         hashedReflectedShader.Hash = city64;
         return hashedReflectedShader;
@@ -651,18 +697,33 @@ public:
 
 class ShaderFileReader : public apemode::shp::IShaderCompiler::IShaderFileReader {
 public:
-    apemode::platform::IAssetManager* mAssetManager;
+    std::vector<std::string> Paths;
 
-    bool ReadShaderTxtFile(const std::string& InFilePath, std::string& OutFileFullPath, std::string& OutFileContent) {
-        if (auto pAsset = mAssetManager->Acquire(InFilePath.c_str())) {
-            const auto assetText = pAsset->GetContentAsTextBuffer();
-            OutFileContent = reinterpret_cast<const char*>(assetText.data());
-            OutFileFullPath = pAsset->GetId();
-            mAssetManager->Release(pAsset);
-            return true;
+    bool ReadShaderTxtFile(const std::string& InFilePath,
+                           std::string& OutFileFullPath,
+                           std::string& OutFileContent,
+                           bool bRelative) {
+        if (bRelative) {
+            auto dir = std::filesystem::path(Paths.back());
+            auto file = dir / InFilePath;
+
+            OutFileFullPath = std::filesystem::absolute(file);
+            if (std::filesystem::exists(file)) {
+                // TODO: ReadTxtFile should return a string.
+                OutFileContent = ReadTextFile(file.string());
+                return true;
+            }
         }
 
-        // apemodevk::platform::DebugBreak( );
+        for (auto path : Paths) {
+            auto file = std::filesystem::path(path) / OutFileFullPath;
+            if (std::filesystem::exists(file)) {
+                OutFileContent = ReadTextFile(file.string());
+                return true;
+            }
+        }
+
+        assert(false && "Caught file not found.");
         return false;
     }
 };
@@ -749,13 +810,13 @@ apemode::shp::IShaderCompiler::ShaderType GetShaderType(const std::string& shade
         return apemode::shp::IShaderCompiler::ShaderType::TessEvaluation;
     } else if (shaderType == "rgen") {
         return apemode::shp::IShaderCompiler::ShaderType::RayGeneration;
-    } else if (shaderType == "ahit") {
+    } else if (shaderType == "rahit") {
         return apemode::shp::IShaderCompiler::ShaderType::AnyHit;
-    } else if (shaderType == "chit") {
+    } else if (shaderType == "rchit") {
         return apemode::shp::IShaderCompiler::ShaderType::ClosestHit;
-    } else if (shaderType == "miss") {
+    } else if (shaderType == "rmiss") {
         return apemode::shp::IShaderCompiler::ShaderType::Miss;
-    } else if (shaderType == "call") {
+    } else if (shaderType == "rcall") {
         return apemode::shp::IShaderCompiler::ShaderType::Callable;
     } else if (shaderType == "mesh") {
         return apemode::shp::IShaderCompiler::ShaderType::Mesh;
@@ -820,10 +881,10 @@ ShaderCompilerMacroDefinitionCollection GetMacroGroup(const json& groupJson) {
 }
 
 std::unique_ptr<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IShaderCompiler& shaderCompiler,
-                                                          const std::map<std::string, std::string>& macroDefinitions,
-                                                          const std::string& shaderType,
-                                                          const std::string& srcFile,
-                                                          const std::string& outputFolder) {
+                                                            const std::map<std::string, std::string>& macroDefinitions,
+                                                            const std::string& shaderType,
+                                                            const std::string& srcFile,
+                                                            const std::string& outputFolder) {
     std::string macrosString = GetMacrosString(macroDefinitions);
     apemode::LogInfo("Variant: asset=\"{}\", definitions=\"{}\"", srcFile, macrosString);
 
@@ -968,57 +1029,72 @@ void CompileShaderVariantsRecursively(std::vector<std::unique_ptr<CompiledShader
         csos, shaderCompiler, macroGroups, 0, shaderType, srcFile, outputFolder, macroIndices);
 }
 
-std::vector<std::unique_ptr<CompiledShaderVariant>> CompileShader(
-    const apemode::platform::shared::AssetManager& assetManager,
-                                                 apemode::shp::IShaderCompiler& shaderCompiler,
-                                                 const json& commandJson,
-                                                 const std::string& outputFolder) {
+std::vector<std::unique_ptr<CompiledShaderVariant>> CompileShaderType(
+    //    const apemode::platform::shared::AssetManager& assetManager,
+    apemode::shp::IShaderCompiler& shaderCompiler,
+    const json& commandJson,
+    const std::string& outputFolder,
+    const std::string& shaderType) {
     std::vector<std::unique_ptr<CompiledShaderVariant>> csos;
 
     assert(commandJson["srcFile"].is_string());
     std::string srcFile = commandJson["srcFile"].get<std::string>();
-    // apemode::LogInfo("srcFile: {}", srcFile.c_str());
 
-    if (auto acquiredSrcFile = assetManager.Acquire(srcFile.c_str())) {
-        // apemode::LogInfo("assetId: {}", acquiredSrcFile->GetId());
+    auto definitionGroupsJsonIt = commandJson.find("definitionGroups");
+    if (definitionGroupsJsonIt != commandJson.end() && definitionGroupsJsonIt->is_array()) {
+        ShaderCompilerMacroGroupCollection macroGroups;
 
-        auto definitionGroupsJsonIt = commandJson.find("definitionGroups");
-        if (definitionGroupsJsonIt != commandJson.end() && definitionGroupsJsonIt->is_array()) {
-            ShaderCompilerMacroGroupCollection macroGroups;
-
-            const json& definitionGroupsJson = *definitionGroupsJsonIt;
-            for (auto& definitionGroupJson : definitionGroupsJson) {
-                macroGroups.MacroGroups.push_back(GetMacroGroup(definitionGroupJson));
-            }
-
-            assert(commandJson["shaderType"].is_string());
-            const std::string shaderType = commandJson["shaderType"].get<std::string>();
-
-            CompileShaderVariantsRecursively(csos, shaderCompiler, macroGroups, shaderType, srcFile, outputFolder);
-        } else {
-            std::map<std::string, std::string> macroDefinitions;
-            ShaderCompilerMacroDefinitionCollection macros;
-
-            auto macrosJsonIt = commandJson.find("macros");
-            if (macrosJsonIt != commandJson.end() && macrosJsonIt->is_array()) {
-                const json& macrosJson = *macrosJsonIt;
-                macroDefinitions = GetMacroDefinitions(macrosJson);
-
-                if (!macroDefinitions.empty()) { macros.Init(macroDefinitions); }
-            }
-
-            assert(commandJson["shaderType"].is_string());
-            const std::string shaderType = commandJson["shaderType"].get<std::string>();
-
-            if (auto cso = CompileShaderVariant(shaderCompiler, macroDefinitions, shaderType, srcFile, outputFolder)) {
-                csos.emplace_back(std::move(cso));
-            }
+        const json& definitionGroupsJson = *definitionGroupsJsonIt;
+        for (auto& definitionGroupJson : definitionGroupsJson) {
+            macroGroups.MacroGroups.push_back(GetMacroGroup(definitionGroupJson));
         }
 
-        return csos;
+        CompileShaderVariantsRecursively(csos, shaderCompiler, macroGroups, shaderType, srcFile, outputFolder);
+    } else {
+        std::map<std::string, std::string> macroDefinitions;
+        ShaderCompilerMacroDefinitionCollection macros;
+
+        auto macrosJsonIt = commandJson.find("macros");
+        if (macrosJsonIt != commandJson.end() && macrosJsonIt->is_array()) {
+            const json& macrosJson = *macrosJsonIt;
+            macroDefinitions = GetMacroDefinitions(macrosJson);
+
+            if (!macroDefinitions.empty()) { macros.Init(macroDefinitions); }
+        }
+
+        if (auto cso = CompileShaderVariant(shaderCompiler, macroDefinitions, shaderType, srcFile, outputFolder)) {
+            csos.emplace_back(std::move(cso));
+        }
     }
 
-    apemode::LogError("Asset not found, the command \"{}\" skipped.", commandJson.dump().c_str());
+    return csos;
+}
+
+std::vector<std::unique_ptr<CompiledShaderVariant>> CompileShader(
+    //    const apemode::platform::shared::AssetManager& assetManager,
+    apemode::shp::IShaderCompiler& shaderCompiler,
+    const json& commandJson,
+    const std::string& outputFolder) {
+    if (commandJson["shaderType"].is_string()) {
+        const std::string shaderType = commandJson["shaderType"].get<std::string>();
+        return CompileShaderType(shaderCompiler, commandJson, outputFolder, shaderType);
+
+    } else if (commandJson["shaderType"].is_array()) {
+        std::vector<std::unique_ptr<CompiledShaderVariant>> variants;
+
+        for (auto& shaderTypeObj : commandJson["shaderType"]) {
+            assert(shaderTypeObj.is_string());
+            std::string shaderType = shaderTypeObj.get<std::string>();
+            auto newVariants = CompileShaderType(shaderCompiler, commandJson, outputFolder, shaderType);
+            variants.insert(variants.end(),
+                            std::make_move_iterator(newVariants.begin()),
+                            std::make_move_iterator(newVariants.end()));
+        }
+
+        return variants;
+    }
+
+    apemode::LogError("Invalid shader type, the command \"{}\" skipped.", commandJson.dump().c_str());
     return {};
 }
 } // namespace
@@ -1036,71 +1112,119 @@ std::string ToPrettySizeString(size_t size) {
     size_t rem = 0;
     while (size >= 1024 && div < kSizeStrings.size()) { rem = size % 1024 ; div++; size /= 1024; }
     const float size_d = static_cast<float>(size) +  static_cast<float>( rem ) / 1024.0f;
-    std::string string = std::to_string(RoundOff(size_d));
-    string += kSizeStrings[div];
-    return string;
+    
+    std::array<char, 16> buff = {};
+    sprintf(buff.data(), "%g %s", RoundOff(size_d), kSizeStrings[div].data());
+
+    // std::string string = std::to_string(RoundOff(size_d));
+    // string += kSizeStrings[div];
+
+    return buff.data();
 }
 // clang-format on
 
+std::string ToHeaderFile(std::string name, const char* pBuffer, size_t bufferLength, uint64_t hash) {
+    std::string headerContents = {};
+    headerContents.reserve(bufferLength << 1);
+
+    headerContents += "//\n// Generated by PrecompiledShaderPipeline\n//\n\n";
+    // headerContents += "#pragma once\n";
+    headerContents += "#include <cstdint>\n";
+    headerContents += "#include <string_view>\n\n";
+    headerContents += "#ifndef " + name + "_declarations\n";
+    headerContents += "#define " + name + "_declarations\n";
+    headerContents += "extern uint64_t get_" + name + "_buffer_hash();\n";
+    headerContents += "extern std::string_view get_" + name + "_buffer_view();\n";
+    headerContents += "#endif //" + name + "_declarations\n\n";
+    headerContents += "#ifdef " + name + "_paste_implementation\n";
+    headerContents += "const size_t " + name + "_byte_size=" + std::to_string(bufferLength) + ";\n";
+
+    std::array<char, 64> buff = {0};
+    if (bufferLength % 8 == 0) {
+        size_t count = bufferLength / 8;
+        headerContents += "const uint64_t " + name + "_array[" + std::to_string(count) + "]={";
+
+        auto ints = reinterpret_cast<const uint64_t*>(pBuffer);
+        for (size_t i = 0; i < count; ++i) {
+            sprintf(buff.data(), "0x%llx,", ints[i]);
+            headerContents += buff.data();
+        }
+    } else if (bufferLength % 4 == 0) {
+        size_t count = bufferLength / 4;
+        headerContents += "const uint32_t " + name + "_array[" + std::to_string(count) + "]={";
+
+        auto ints = reinterpret_cast<const uint32_t*>(pBuffer);
+        for (size_t i = 0; i < count; ++i) {
+            sprintf(buff.data(), "0x%x,", ints[i]);
+            headerContents += buff.data();
+        }
+    } else if (bufferLength % 2 == 0) {
+        size_t count = bufferLength / 2;
+        headerContents += "const uint16_t " + name + "_array[" + std::to_string(count) + "]={";
+
+        auto ints = reinterpret_cast<const uint16_t*>(pBuffer);
+        for (size_t i = 0; i < count; ++i) {
+            sprintf(buff.data(), "0x%x,", static_cast<uint32_t>(ints[i]) & 0xffff);
+            headerContents += buff.data();
+        }
+    } else {
+        headerContents += "const uint8_t " + name + "_array[" + std::to_string(bufferLength) + "]={";
+        for (size_t i = 0; i < bufferLength; ++i) {
+            sprintf(buff.data(), "0x%x,", static_cast<uint32_t>(pBuffer[i]) & 0xff);
+            headerContents += buff.data();
+        }
+    }
+
+    // clang-format off
+    headerContents.back() = '}';
+    headerContents += ";\nstatic_assert(sizeof(" + name + "_array) == " + name + "_byte_size, \"Caught size mismatch.\");\n\n";
+
+    headerContents += "uint64_t get_" + name + "_buffer_hash(){\n";
+    headerContents += "return " + std::to_string(hash) + ";\n";
+    headerContents += "}\n";
+    headerContents += "std::string_view get_" + name + "_buffer_view(){\n";
+    headerContents += "return std::string_view(reinterpret_cast<const char*>(" + name + "_array), " + name + "_byte_size);\n";
+    headerContents += "}\n\n#endif //" + name + "_paste_implementation\n\n";
+    // clang-format on
+
+    return headerContents;
+}
+
 int BuildLibrary(int argc, char** argv) {
-    /* Input parameters:
-     * --assets-folder "/Users/vlad.serhiienko/Projects/Home/Viewer/assets"
-     * --cso-json-file "/Users/vlad.serhiienko/Projects/Home/Viewer/assets/shaders/Viewer.cso.json"
-     * --cso-file "/Users/vlad.serhiienko/Projects/Home/Viewer/assets/shaders/Viewer.cso"
-     */
     apemode::AppState::OnMain(argc, (const char**)argv);
     apemode::AppStateExitGuard eg{};
 
-    std::string assetsFolderWildcard = apemode::TGetOption("assets-folder", std::string());
-    if (assetsFolderWildcard.empty()) {
-        apemode::LogError("No assets folder.");
-        return 1;
-    }
+    if (!apemode::AppState::Get() || !apemode::AppState::Get()->GetArgs()) { return -1; }
 
-    std::string outputFile = apemode::TGetOption("cso-file", std::string());
-    if (outputFile.empty()) {
-        apemode::LogError("Output CSO file is empty.");
-        return 1;
-    }
+    auto& options = *apemode::AppState::Get()->GetArgs();
+
+    std::string mode = options["mode"].as<std::string>();
+    if (mode != "build-collection") { return 1; }
+
+    std::string inputFile = options["input-file"].as<std::string>();
+    if (!std::filesystem::exists(inputFile)) { return 1; }
+
+    std::string outputFile = options["output-file"].as<std::string>();
+    if (outputFile.empty()) { return 1; }
 
     std::string outputFolder = outputFile + ".d";
-#if defined(_WIN32)
-    CreateDirectory(outputFolder.c_str(), NULL);
-#else
-    mkdir(outputFolder.c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
-#endif
+    if (!std::filesystem::exists(outputFolder)) { std::filesystem::create_directory(outputFolder); }
+    if (!std::filesystem::exists(outputFolder)) { return 1; }
 
     if (outputFile.empty()) {
         apemode::LogError("Output CSO file is empty.");
         return 1;
     }
 
-    std::string assetsFolder = assetsFolderWildcard;
-    ReplaceAll(assetsFolder, "*", "");
-    ReplaceAll(assetsFolder, "\\", "/");
-    ReplaceAll(assetsFolder, "//", "/");
+    apemode::LogInfo("CSO JSON file: {}", inputFile);
 
-    apemode::LogInfo("Asset folder: {}", assetsFolder);
-    apemode::LogInfo("Asset folder (wildcard): {}", assetsFolderWildcard);
-
-    apemode::platform::shared::AssetManager assetManager;
-    assetManager.UpdateAssets(assetsFolderWildcard.c_str(), nullptr, 0);
-
-    std::string csoJsonFile = apemode::TGetOption("cso-json-file", std::string());
-    if (csoJsonFile.empty() || !apemode::platform::shared::FileExists(csoJsonFile.c_str())) {
-        apemode::LogError("No CSO file.");
-        return 1;
-    }
-
-    apemode::LogInfo("CSO JSON file: {}", csoJsonFile);
-
-    auto csoJsonContents = apemode::platform::shared::FileReader().ReadTxtFile(csoJsonFile.c_str());
-    if (csoJsonFile.empty()) {
+    auto csoJsonContents = ReadTextFile(inputFile);
+    if (csoJsonContents.empty()) {
         apemode::LogError("CSO file is empty.");
         return 1;
     }
 
-    const json csoJson = json::parse((const char*)csoJsonContents.data());
+    const json csoJson = json::parse(csoJsonContents.c_str());
     if (!csoJson.is_object()) {
         apemode::LogError("Parsing error.");
         return 1;
@@ -1117,7 +1241,11 @@ int BuildLibrary(int argc, char** argv) {
     ShaderFileReader shaderCompilerFileReader;
     ShaderFeedbackWriter shaderFeedbackWriter;
 
-    shaderCompilerFileReader.mAssetManager = &assetManager;
+    if (options.count("add-path")) {
+        shaderCompilerFileReader.Paths = options["add-path"].as<std::vector<std::string>>();
+    }
+
+    shaderCompilerFileReader.Paths.push_back(std::filesystem::path(inputFile).parent_path().string());
     shaderCompiler->SetShaderFileReader(&shaderCompilerFileReader);
     shaderCompiler->SetShaderFeedbackWriter(&shaderFeedbackWriter);
 
@@ -1126,7 +1254,7 @@ int BuildLibrary(int argc, char** argv) {
     // clang-format off
     const json& commandsJson = csoJson["commands"];
     for (const auto& commandJson : commandsJson) {
-        std::vector<std::unique_ptr<CompiledShaderVariant>> variants = CompileShader(assetManager, *shaderCompiler, commandJson, outputFolder);
+        std::vector<std::unique_ptr<CompiledShaderVariant>> variants = CompileShader(*shaderCompiler, commandJson, outputFolder);
         compiledShaders.insert(compiledShaders.end(), std::make_move_iterator(variants.begin()), std::make_move_iterator(variants.end()));
     }
     // clang-format on
@@ -1142,11 +1270,27 @@ int BuildLibrary(int argc, char** argv) {
     auto builtBuffeLen = (size_t)fbb.GetSize();
 
     apemode::LogInfo("= {} bytes ~ {}", builtBuffeLen, ToPrettySizeString(builtBuffeLen));
-
     apemode::LogInfo("CSO file: {}", outputFile);
     if (!flatbuffers::SaveFile(outputFile.c_str(), builtBuffePtr, builtBuffeLen, true)) {
         apemode::LogError("Failed to write CSO ({} bytes) to file: '{}'", builtBuffeLen, outputFile);
         return 1;
+    }
+
+    constexpr bool exportHeader = true;
+    if constexpr (exportHeader) {
+        std::string name = std::filesystem::path(outputFile).filename();
+        ReplaceAll(name, ".", "_");
+        ReplaceAll(name, " ", "_");
+        ReplaceAll(name, "/", "_");
+        ReplaceAll(name, "\\", "_");
+        std::for_each(name.begin(), name.end(), [](char& c) { c = std::tolower(c); });
+
+        auto hash = apemode::CityHash64(builtBuffePtr, builtBuffeLen);
+        auto hashString = std::to_string(hash);
+        auto header = ToHeaderFile(name, builtBuffePtr, builtBuffeLen, hash);
+        flatbuffers::SaveFile((outputFile + ".h").c_str(), header.data(), header.size(), false);
+        flatbuffers::SaveFile((outputFile + ".hash.bin").c_str(), (const char*)&hash, sizeof(hash), true);
+        flatbuffers::SaveFile((outputFile + ".hash.txt").c_str(), hashString.c_str(), hashString.size(), false);
     }
 
     apemode::LogInfo("Done.");

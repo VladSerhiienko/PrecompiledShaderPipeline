@@ -18,7 +18,7 @@ namespace {
 class ImplementedAppState : public AppState {
 public:
     std::shared_ptr<spdlog::logger> Logger; /* Prints to console and file */
-    argh::parser Cmdl;                      /* User parameters */
+    cxxopts::Options Options;               /* User parameters */
     tf::Taskflow Taskflow;                  /* Task flow */
 
     ImplementedAppState(int args, const char** argv);
@@ -31,7 +31,7 @@ static apemode::ImplementedAppState* gState = nullptr;
 
 apemode::AppState* apemode::AppState::Get() { return gState; }
 spdlog::logger* apemode::AppState::GetLogger() { return gState->Logger.get(); }
-argh::parser* apemode::AppState::GetArgs() { return &gState->Cmdl; }
+cxxopts::Options* apemode::AppState::GetArgs() { return &gState->Options; }
 tf::Taskflow* apemode::AppState::GetDefaultTaskflow() { return &gState->Taskflow; }
 
 void apemode::AppState::OnMain(int args, const char** ppArgs) {
@@ -39,7 +39,10 @@ void apemode::AppState::OnMain(int args, const char** ppArgs) {
 }
 
 void apemode::AppState::OnExit() {
-    if (nullptr != gState) { delete gState; }
+    if (nullptr != gState) {
+        delete gState;
+        gState = nullptr;
+    }
 }
 
 std::string ComposeLogFile() {
@@ -80,19 +83,25 @@ std::shared_ptr<spdlog::logger> CreateLogger(spdlog::level::level_enum lvl, std:
 #endif
     };
 
-    auto logger = spdlog::create<>("viewer", sinks.begin(), sinks.end());
+    constexpr std::string_view loggerName = "appstate";
+
+    auto logger = spdlog::get(loggerName.data());
+    if (!logger) { logger = spdlog::create<>(loggerName.data(), sinks.begin(), sinks.end()); }
+
     logger->set_level(lvl);
-    spdlog::set_pattern("[%T.%f] [%t] [%L] %v");
+    spdlog::set_pattern("[%T.%f:%t:%L] %v");
     return logger;
 }
 
 apemode::ImplementedAppState::ImplementedAppState(int argc, const char** argv)
-    : Logger(nullptr), Cmdl(), Taskflow("Default") {
+    : Logger(nullptr), Options(argv[0]), Taskflow("Default") {
     Logger = CreateLogger(spdlog::level::trace, ComposeLogFile());
-    Cmdl.parse(argc, argv, argh::parser::PREFER_PARAM_FOR_UNREG_OPTION);
 
-    // Logger->info("Input argumets:");
-    // for (int i = 0; i < argc; ++i) { Logger->info("#{} = {}", i, argv[i]); }
+    Options.add_options("main")("i,input-file", "Input", cxxopts::value<std::string>());
+    Options.add_options("main")("o,output-file", "Output", cxxopts::value<std::string>());
+    Options.add_options("main")("m,mode", "Mode", cxxopts::value<std::string>()->default_value("build-collection"));
+    Options.add_options("main")("a,add-path", "Add path", cxxopts::value<std::vector<std::string>>());
+    Options.parse(argc, argv);
 }
 
 apemode::ImplementedAppState::~ImplementedAppState() = default;

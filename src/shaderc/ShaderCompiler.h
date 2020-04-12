@@ -172,9 +172,12 @@ public:
     class IShaderFileReader {
     public:
         virtual ~IShaderFileReader() = default;
+        // virtual bool FileExists(const std::string& filePath) = 0;
+
         virtual bool ReadShaderTxtFile(const std::string& filePath,
                                        std::string& OutFileFullPath,
-                                       std::string& OutFileContent) = 0;
+                                       std::string& OutFileContent,
+                                       bool bRelative) = 0;
     };
 
     /* Simple interface to read files from shader assets */

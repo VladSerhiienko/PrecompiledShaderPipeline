@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.4.1)
 
 include(ExternalProject)
+
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 project (PrecompiledShaderPipeline CXX)
 
 message(STATUS "CMAKE_SYSTEM_INFO_FILE = ${CMAKE_SYSTEM_INFO_FILE}")
@@ -48,25 +50,25 @@ endif()
 
 #
 #
-# argh
+# cxxopts
 #
 #
 
 ExternalProject_Add(
-    argh
-    GIT_REPOSITORY "git@github.com:adishavit/argh.git"
-    SOURCE_DIR "${CMAKE_SOURCE_DIR}/dependencies/argh"
+    cxxopts
+    GIT_REPOSITORY "git@github.com:jarro2783/cxxopts.git"
+    GIT_TAG "1_0"
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/dependencies/cxxopts"
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
     INSTALL_COMMAND ""
     UPDATE_COMMAND ""
     PATCH_COMMAND ""
-    LOG_DOWNLOAD ON
-)
+    LOG_DOWNLOAD ON)
 
-ExternalProject_Get_Property(argh SOURCE_DIR)
-set(argh_source_dir ${SOURCE_DIR})
-message(STATUS "argh_source_dir = ${argh_source_dir}")
+ExternalProject_Get_Property(cxxopts SOURCE_DIR)
+set(cxxopts_source_dir ${SOURCE_DIR})
+message(STATUS "cxxopts_source_dir = ${cxxopts_source_dir}")
 
 #
 #
@@ -328,7 +330,7 @@ target_include_directories(
     PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/shaderc
-    ${CMAKE_SOURCE_DIR}/dependencies/argh
+    ${CMAKE_SOURCE_DIR}/dependencies/cxxopts/include
     ${CMAKE_SOURCE_DIR}/dependencies/spdlog/include
     ${CMAKE_SOURCE_DIR}/dependencies/cpp-taskflow
     ${CMAKE_SOURCE_DIR}/dependencies/shaderc/libshaderc/include
@@ -339,7 +341,7 @@ target_include_directories(
 add_dependencies(
     ShaderCompilerLibrary
     shaderc
-    argh
+    cxxopts
     spdlog
     taskflow
     )
@@ -348,11 +350,11 @@ add_library(
     PrecompiledShaderPipelineLibrary
     STATIC
     ${CMAKE_SOURCE_DIR}/src/shaderc/ShaderCompilerApp.cpp
-    ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.cpp
-    ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.h
+    # ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.cpp
+    # ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared/AssetManager.h
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/AppState.cpp
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/AppState.h
-    ${CMAKE_SOURCE_DIR}/src/apemode/platform/IAssetManager.h
+    # ${CMAKE_SOURCE_DIR}/src/apemode/platform/IAssetManager.h
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/CityHash.cpp
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/CityHash.h
     )
@@ -361,9 +363,9 @@ target_include_directories(
     PrecompiledShaderPipelineLibrary
     PUBLIC
     ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/generated
+    ${CMAKE_SOURCE_DIR}/include/mutable_generated
     ${CMAKE_SOURCE_DIR}/src/shaderc
-    ${CMAKE_SOURCE_DIR}/dependencies/argh
+    ${CMAKE_SOURCE_DIR}/dependencies/cxxopts/include
     ${CMAKE_SOURCE_DIR}/dependencies/spdlog/include
     ${CMAKE_SOURCE_DIR}/dependencies/cpp-taskflow
     ${CMAKE_SOURCE_DIR}/dependencies/json/include
@@ -376,7 +378,7 @@ add_dependencies(
     shaderc
     json
     flatbuffers
-    argh
+    cxxopts
     spdlog
     taskflow
 )
@@ -399,14 +401,16 @@ add_dependencies(
     shaderc
     json
     flatbuffers
-    argh
+    cxxopts
     spdlog
     taskflow
 )
 
 add_executable(
     PrecompiledShaderPipelineTests
-    ${CMAKE_SOURCE_DIR}/tests/src/main.cpp
+    ${CMAKE_SOURCE_DIR}/include/utils/PrecompiledShaderPipelineUtils.h
+    ${CMAKE_SOURCE_DIR}/tests/src/test_main.cpp
+    ${CMAKE_SOURCE_DIR}/tests/src/test_embedded.cpp
     )
 
 target_include_directories(
@@ -414,7 +418,9 @@ target_include_directories(
     PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/tests/src
-    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/utils
+    ${CMAKE_SOURCE_DIR}/include/mutable_generated
+    ${CMAKE_SOURCE_DIR}/tests/assets/shaders
     ${CMAKE_SOURCE_DIR}/src/apemode
     ${CMAKE_SOURCE_DIR}/src/apemode/platform
     ${CMAKE_SOURCE_DIR}/src/apemode/platform/shared
@@ -431,7 +437,7 @@ add_dependencies(
     json
     flatbuffers
     googletest
-    argh
+    cxxopts
     spdlog
     taskflow
 )

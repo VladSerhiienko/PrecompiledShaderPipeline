@@ -1,14 +1,12 @@
 #include "ShaderCompiler.h"
 
 #include <apemode/platform/AppState.h>
-#include <apemode/platform/IAssetManager.h>
 
+#include <memory>
 #include <shaderc/shaderc.hpp>
 #include <spirv_glsl.hpp>
 #include <spirv_msl.hpp>
 #include <spirv_reflect.hpp>
-
-#include <memory>
 using namespace apemode::shp;
 
 namespace {
@@ -504,7 +502,8 @@ public:
                                        const size_t includeDepth) {
         auto userData = std::make_unique<UserData>();
         if (userData && pIncludedFiles &&
-            FileReader.ReadShaderTxtFile(pszRequestedSource, userData->Path, userData->Content)) {
+            FileReader.ReadShaderTxtFile(
+                pszRequestedSource, userData->Path, userData->Content, includeType == shaderc_include_type_relative)) {
             pIncludedFiles->InsertIncludedFile(userData->Path);
 
             auto includeResult = std::make_unique<shaderc_include_result>();
@@ -706,12 +705,14 @@ std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(const std
                                                                        IIncludedFileSet* pOutIncludedFiles) const {
     // apemode::LogInfo("ShaderCompiler: Compiling {}", InFilePath);
 
+    if (!pShaderFileReader) { return nullptr; }
+
     shaderc::CompileOptions options;
     options.SetSourceLanguage(shaderc_source_language_glsl);
     options.SetOptimizationLevel(shaderc_optimization_level(optimizationType));
     options.SetTargetEnvironment(shaderc_target_env_vulkan, 0);
 
-    if (pShaderFileReader) {
+    if (pOutIncludedFiles) {
         assert(pOutIncludedFiles != nullptr && "Caught a requested included files set without includer.");
         options.SetIncluder(std::make_unique<Includer>(*pShaderFileReader, pOutIncludedFiles));
     }
@@ -727,26 +728,26 @@ std::unique_ptr<apemode::shp::ICompiledShader> ShaderCompiler::Compile(const std
     }
 
     switch (shaderType) { // clang-format off
-        case ShaderType::Vertex:         options.AddMacroDefinition("VERTEX_SHADER", "1");      break;
-        case ShaderType::Fragment:       options.AddMacroDefinition("FRAGMENT_SHADER", "1");    break;
-        case ShaderType::Compute:        options.AddMacroDefinition("COMPUTE_SHADER", "1");     break;
-        case ShaderType::Geometry:       options.AddMacroDefinition("GEOMETRY_SHADER", "1");    break;
-        case ShaderType::TessControl:    options.AddMacroDefinition("TESSCONTROL_SHADER", "1"); break;
-        case ShaderType::TessEvaluation: options.AddMacroDefinition("TESSEVALUATION_SHADER", "1");    break;
-        case ShaderType::RayGeneration:  options.AddMacroDefinition("RAYGENERATION_SHADER", "1");      break;
-        case ShaderType::AnyHit:         options.AddMacroDefinition("ANYHIT_SHADER", "1");      break;
-        case ShaderType::ClosestHit:     options.AddMacroDefinition("CLOSESTHIT_SHADER", "1");  break;
-        case ShaderType::Miss:           options.AddMacroDefinition("MISS_SHADER", "1");        break;
-        case ShaderType::Intersection:   options.AddMacroDefinition("INTERSECTION_SHADER", "1");   break;
-        case ShaderType::Callable:       options.AddMacroDefinition("CALLABLE_SHADER", "1");    break;
-        case ShaderType::Task:           options.AddMacroDefinition("TASK_SHADER", "1");        break;
-        case ShaderType::Mesh:           options.AddMacroDefinition("MESH_SHADER", "1");        break;
-        default:                         options.AddMacroDefinition("ANY_SHADER", "1");         break;
+        case ShaderType::Vertex:         options.AddMacroDefinition("VERTEX_SHADER", "1");          break;
+        case ShaderType::Fragment:       options.AddMacroDefinition("FRAGMENT_SHADER", "1");        break;
+        case ShaderType::Compute:        options.AddMacroDefinition("COMPUTE_SHADER", "1");         break;
+        case ShaderType::Geometry:       options.AddMacroDefinition("GEOMETRY_SHADER", "1");        break;
+        case ShaderType::TessControl:    options.AddMacroDefinition("TESSCONTROL_SHADER", "1");     break;
+        case ShaderType::TessEvaluation: options.AddMacroDefinition("TESSEVALUATION_SHADER", "1");  break;
+        case ShaderType::RayGeneration:  options.AddMacroDefinition("RAYGENERATION_SHADER", "1");   break;
+        case ShaderType::AnyHit:         options.AddMacroDefinition("ANYHIT_SHADER", "1");          break;
+        case ShaderType::ClosestHit:     options.AddMacroDefinition("CLOSESTHIT_SHADER", "1");      break;
+        case ShaderType::Miss:           options.AddMacroDefinition("MISS_SHADER", "1");            break;
+        case ShaderType::Intersection:   options.AddMacroDefinition("INTERSECTION_SHADER", "1");    break;
+        case ShaderType::Callable:       options.AddMacroDefinition("CALLABLE_SHADER", "1");        break;
+        case ShaderType::Task:           options.AddMacroDefinition("TASK_SHADER", "1");            break;
+        case ShaderType::Mesh:           options.AddMacroDefinition("MESH_SHADER", "1");            break;
+        default:                         options.AddMacroDefinition("ANY_SHADER", "1");             break;
     } // clang-format on
 
     std::string fullPath = "";
     std::string contents = "";
-    if (pShaderFileReader->ReadShaderTxtFile(filePath, fullPath, contents)) { // clang-format off
+    if (pShaderFileReader->ReadShaderTxtFile(filePath, fullPath, contents, true)) { // clang-format off
         if (auto compiledShader = InternalCompile(fullPath, contents, pMacros, shaderType, options, true, &Compiler, pShaderFeedbackWriter)) {
             pOutIncludedFiles->InsertIncludedFile(fullPath);
             return compiledShader;

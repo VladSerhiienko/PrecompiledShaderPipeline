@@ -5,9 +5,10 @@
 #pragma warning(push)
 #pragma warning(disable : 4244)
 
-#include <argh.h>
 #include <spdlog/fmt/ostr.h>
 #include <spdlog/logger.h>
+
+#include <cxxopts.hpp>
 
 #pragma warning(pop)
 
@@ -41,52 +42,13 @@ public:
     static void OnExit();
 
     spdlog::logger* GetLogger();
-    argh::parser* GetArgs();
+    cxxopts::Options* GetArgs();
     tf::Taskflow* GetDefaultTaskflow();
 };
 
 struct AppStateExitGuard {
     ~AppStateExitGuard() { AppState::OnExit(); }
 };
-
-/**
- * @return Command line option of specified type.
- * @note Silences exceptions, returns default value.
- * auto sceneFiles = TGetOption< std::vector< std::string > >("scene", {});
- **/
-template <typename TOption>
-inline TOption TGetOption(const char* const optionName, const TOption& defaultValue) {
-    if (auto pAppState = AppState::Get())
-        if (auto pArgs = pAppState->GetArgs()) {
-            if (pArgs->operator[]({optionName})) {
-                TOption option;
-                if (pArgs->operator()({optionName}) >> option) return option;
-            }
-        }
-
-    return defaultValue;
-}
-
-template <>
-inline bool TGetOption(const char* const optionName, const bool& defaultValue) {
-    if (auto pAppState = AppState::Get())
-        if (auto pArgs = pAppState->GetArgs()) { return pArgs->operator[]({optionName}); }
-
-    return defaultValue;
-}
-
-template <>
-inline std::string TGetOption(const char* const optionName, const std::string& defaultValue) {
-    if (auto pAppState = AppState::Get())
-        if (auto pArgs = pAppState->GetArgs()) {
-            // if ( pArgs->operator[]( {optionName} ) ) {
-            std::string option = pArgs->operator()({optionName}).str();
-            return option;
-            // }
-        }
-
-    return defaultValue;
-}
 
 enum LogLevel {
     Trace = 0,

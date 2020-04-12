@@ -146,8 +146,16 @@ table ReflectedShader {
     sampler_indices : [uint];
     storage_image_indices : [uint];
     storage_buffer_indices : [uint];
+    
+    stage_input_state_indices : [uint];
+    stage_output_state_indices : [uint];
     uniform_buffer_state_indices : [uint];
     push_constant_buffer_state_indices : [uint];
+    sampled_image_state_indices : [uint];
+    subpass_input_state_indices : [uint];
+    image_state_indices : [uint];
+    sampler_state_indices : [uint];
+    storage_image_state_indices : [uint];
     storage_buffer_state_indices : [uint];
 }
 
