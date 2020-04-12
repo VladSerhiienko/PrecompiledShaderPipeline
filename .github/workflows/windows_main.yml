@@ -25,7 +25,7 @@ jobs:
         git config --global url."https://github.com/".insteadOf git@github.com:
         git config --global url."https://".insteadOf git://
         python --version
-        ls
+        git lfs pull
         .\cso-install-required-python-windows.ps1
         .\cso-build-install-windows.ps1
         .\cso-update-binaries-windows.ps1

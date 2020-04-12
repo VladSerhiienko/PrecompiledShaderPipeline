@@ -24,6 +24,7 @@ jobs:
       run: |
         git config --global url."https://github.com/".insteadOf git@github.com:
         git config --global url."https://".insteadOf git://
+        git lfs pull
         sh cso-install-required-python-macos.sh
         sh cso-build-install-macos.sh
         sh cso-update-binaries-macos.sh
