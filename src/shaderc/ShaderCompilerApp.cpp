@@ -49,7 +49,7 @@ struct CompiledShaderVariant {
     std::string macOS = "";
     std::string ES2 = "";
     std::string ES3 = "";
-    std::vector<uint8_t> Compiled = {};
+    std::vector<uint8_t> Buffer = {};
     apemode::shp::ReflectedShader Reflected = {};
     cso::Shader Type = cso::Shader::Shader_MAX;
     std::set<std::string> IncludedFiles = {};
@@ -385,7 +385,7 @@ struct CompiledShaderCollection {
         for (auto& csoPtr : variants) {
             auto& cso = *csoPtr;
             HashedCompiledShader compiledShader = {};
-            compiledShader.BufferIndex = GetBufferIndex(cso.Compiled);
+            compiledShader.BufferIndex = GetBufferIndex(cso.Buffer);
             compiledShader.PreprocessedIndex = GetStringIndex(cso.Preprocessed);
             compiledShader.AssemblyIndex = GetStringIndex(cso.Assembly);
             compiledShader.VulkanIndex = GetStringIndex(cso.Vulkan);
@@ -966,7 +966,7 @@ std::unique_ptr<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::
                                                      eShaderType,
                                                      apemode::shp::IShaderCompiler::ShaderOptimizationType::Performance,
                                                      &includedFileSet)) {
-        cso.Compiled.assign(compiledShader->GetBytePtr(),
+        cso.Buffer.assign(compiledShader->GetBytePtr(),
                             compiledShader->GetBytePtr() + compiledShader->GetByteCount());
 
         cso.Preprocessed = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::Preprocessed);

@@ -232,7 +232,7 @@ public:
     apemode::shp::ReflectedShader Reflected = {};
 
     template <typename C, typename E>
-    void CrossCompileOrCatchError(C&& compile, E&& err) {
+    static void CrossCompileOrCatchError(C&& compile, E&& err) {
         try {
             compile();
         }
@@ -520,6 +520,11 @@ public:
     }
 
     void PopulateReflection() {
+        
+        auto entryPoints = Reflection.get_entry_points_and_stages();
+        
+        
+        
         const auto& constants = Reflection.get_specialization_constants();
         ReflectConstantVector(constants, Reflected.Constants);
 
