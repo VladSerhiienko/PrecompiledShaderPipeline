@@ -15,6 +15,7 @@ public:
     ~EmbeddedPrecompiledShaderPipelineTest() = default;
 
     void SetUp() override {
+        using namespace apemode::cso::embedded;
         pCollection = cso::GetCompiledShaderCollection(get_viewer_cso_buffer_view().data());
         EXPECT_TRUE(pCollection);
     }
