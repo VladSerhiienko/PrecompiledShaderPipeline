@@ -534,13 +534,14 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
   uint32_t compiled_glsl_es3_string_index_;
   uint32_t compiled_msl_ios_string_index_;
   uint32_t compiled_msl_macos_string_index_;
+  uint32_t compiled_hlsl_string_index_;
   uint32_t type_;
 
  public:
   CompiledShader() {
     memset(static_cast<void *>(this), 0, sizeof(CompiledShader));
   }
-  CompiledShader(uint32_t _compiled_buffer_index, uint32_t _reflected_shader_index, uint32_t _preprocessed_string_index, uint32_t _assembly_string_index, uint32_t _compiled_glsl_vulkan_string_index, uint32_t _compiled_glsl_es2_string_index, uint32_t _compiled_glsl_es3_string_index, uint32_t _compiled_msl_ios_string_index, uint32_t _compiled_msl_macos_string_index, IR _type)
+  CompiledShader(uint32_t _compiled_buffer_index, uint32_t _reflected_shader_index, uint32_t _preprocessed_string_index, uint32_t _assembly_string_index, uint32_t _compiled_glsl_vulkan_string_index, uint32_t _compiled_glsl_es2_string_index, uint32_t _compiled_glsl_es3_string_index, uint32_t _compiled_msl_ios_string_index, uint32_t _compiled_msl_macos_string_index, uint32_t _compiled_hlsl_string_index, IR _type)
       : compiled_buffer_index_(flatbuffers::EndianScalar(_compiled_buffer_index)),
         reflected_shader_index_(flatbuffers::EndianScalar(_reflected_shader_index)),
         preprocessed_string_index_(flatbuffers::EndianScalar(_preprocessed_string_index)),
@@ -550,6 +551,7 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
         compiled_glsl_es3_string_index_(flatbuffers::EndianScalar(_compiled_glsl_es3_string_index)),
         compiled_msl_ios_string_index_(flatbuffers::EndianScalar(_compiled_msl_ios_string_index)),
         compiled_msl_macos_string_index_(flatbuffers::EndianScalar(_compiled_msl_macos_string_index)),
+        compiled_hlsl_string_index_(flatbuffers::EndianScalar(_compiled_hlsl_string_index)),
         type_(flatbuffers::EndianScalar(static_cast<uint32_t>(_type))) {
   }
   uint32_t compiled_buffer_index() const {
@@ -606,6 +608,12 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
   void mutate_compiled_msl_macos_string_index(uint32_t _compiled_msl_macos_string_index) {
     flatbuffers::WriteScalar(&compiled_msl_macos_string_index_, _compiled_msl_macos_string_index);
   }
+  uint32_t compiled_hlsl_string_index() const {
+    return flatbuffers::EndianScalar(compiled_hlsl_string_index_);
+  }
+  void mutate_compiled_hlsl_string_index(uint32_t _compiled_hlsl_string_index) {
+    flatbuffers::WriteScalar(&compiled_hlsl_string_index_, _compiled_hlsl_string_index);
+  }
   IR type() const {
     return static_cast<IR>(flatbuffers::EndianScalar(type_));
   }
@@ -613,7 +621,7 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) CompiledShader FLATBUFFERS_FINAL_CLASS {
     flatbuffers::WriteScalar(&type_, static_cast<uint32_t>(_type));
   }
 };
-FLATBUFFERS_STRUCT_END(CompiledShader, 40);
+FLATBUFFERS_STRUCT_END(CompiledShader, 44);
 
 struct UniqueString FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {

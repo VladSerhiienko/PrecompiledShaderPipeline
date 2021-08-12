@@ -7,6 +7,7 @@
 #include <array>
 #include <fstream>
 #include <iterator>
+#include <cassert>
 
 extern int BuildLibrary(int argc, char** argv);
 
@@ -25,15 +26,15 @@ public:
                                                      "--add-path=../../tests/assets/shaders"};
 
         int buildLibraryResult = BuildLibrary(argv.size(), (char**)argv.data());
-        EXPECT_EQ(buildLibraryResult, 0);
+        assert(buildLibraryResult, 0);
 
         std::ifstream viewerCSO("../../tests/assets/shaders/Viewer.cso", std::ios::binary);
         collectionBuffer =
             std::vector<int8_t>(std::istreambuf_iterator<char>(viewerCSO), std::istreambuf_iterator<char>());
-        EXPECT_TRUE(!collectionBuffer.empty());
+        assert(!collectionBuffer.empty());
 
         pCollection = cso::GetCompiledShaderCollection(collectionBuffer.data());
-        EXPECT_TRUE(pCollection);
+        assert(pCollection);
     }
 
     void TearDown() override {

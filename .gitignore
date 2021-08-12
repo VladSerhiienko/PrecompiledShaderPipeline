@@ -9,3 +9,4 @@ bin/Windows/log*
 build_msbuild2019_win64
 build_llvm_msbuild2019_win64
 include/flatbuffers
+tools/cmake

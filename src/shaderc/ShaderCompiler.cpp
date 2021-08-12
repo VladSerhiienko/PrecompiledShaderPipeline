@@ -7,6 +7,7 @@
 #include <spirv_glsl.hpp>
 #include <spirv_msl.hpp>
 #include <spirv_reflect.hpp>
+#include <spirv_hlsl.hpp>
 using namespace apemode::shp;
 
 namespace {
@@ -134,8 +135,8 @@ void PrintReflection(const ReflectedType& reflectedType,
     apemode::LogInfo("{}", outputString);
 
     if (!reflectedType.Members.empty()) {
-        uint32_t memberCount = reflectedType.Members.size();
-        for (uint32_t i = 0; i < memberCount; ++i) {
+        size_t memberCount = reflectedType.Members.size();
+        for (size_t i = 0; i < memberCount; ++i) {
             PrintReflection(reflectedType.Members[i]->Type,
                             prefix + (!isLastItem ? "│   " : "    "),
                             (i + 1) == memberCount,
@@ -188,16 +189,16 @@ void PrintReflection(const std::vector<ReflectedConstant>& reflectedConstants) {
 
     apemode::LogInfo("+ constants ({}):", reflectedConstants.size());
 
-    uint32_t count = reflectedConstants.size();
-    for (uint32_t i = 0; i < count; ++i) { PrintReflection(reflectedConstants[i], "", (i + 1) == count); }
+    size_t count = reflectedConstants.size();
+    for (size_t i = 0; i < count; ++i) { PrintReflection(reflectedConstants[i], "", (i + 1) == count); }
 }
 void PrintReflection(const std::vector<ReflectedResource>& reflectedResources, const std::string& resourceKind) {
     if (reflectedResources.empty()) { return; }
 
     apemode::LogInfo("+ {} ({}):", resourceKind, reflectedResources.size());
 
-    uint32_t count = reflectedResources.size();
-    for (uint32_t i = 0; i < count; ++i) { PrintReflection(reflectedResources[i], "", (i + 1) == count); }
+    size_t count = reflectedResources.size();
+    for (size_t i = 0; i < count; ++i) { PrintReflection(reflectedResources[i], "", (i + 1) == count); }
 }
 
 void PrintReflection(const ReflectedShader& reflectedShader) {
@@ -216,8 +217,6 @@ void PrintReflection(const ReflectedShader& reflectedShader) {
 } // namespace
 
 ReflectedType::ReflectedType() = default;
-ReflectedType::ReflectedType(ReflectedType&&) noexcept = default;
-ReflectedType& ReflectedType::operator=(ReflectedType&&) = default;
 ReflectedType::~ReflectedType() = default;
 
 class CompiledShader : public ICompiledShader {
@@ -249,19 +248,19 @@ public:
     CompiledShader(std::vector<uint32_t>&& dwords, std::string&& preprocessedSrc, std::string&& assemblySrc)
         : Dwords(std::move(dwords)), CompilerGLSL(Dwords.data(), Dwords.size()), Reflection(CompilerGLSL) {
         Strings[(uint32_t)CompiledShaderTarget::Preprocessed] = std::move(preprocessedSrc);
-        Strings[(uint32_t)CompiledShaderTarget::Assembly] = std::move(assemblySrc);
+        Strings[(uint32_t)CompiledShaderTarget::SpvAssembly] = std::move(assemblySrc);
 
         CrossCompileOrCatchError(
             [&] {
                 spirv_cross::CompilerGLSL::Options vulkanOptions = {};
                 vulkanOptions.vulkan_semantics = true;
                 CompilerGLSL.set_common_options(vulkanOptions);
-                Strings[(uint32_t)CompiledShaderTarget::Vulkan] = CompilerGLSL.compile();
+                Strings[(uint32_t)CompiledShaderTarget::VulkanGLSL] = CompilerGLSL.compile();
                 PopulateReflection();
             },
             [&](std::string err) {
                 apemode::LogError("Failed to compile for Vulkan: {}", err);
-                Errors[(uint32_t)CompiledShaderTarget::Vulkan] = std::move(err);
+                Errors[(uint32_t)CompiledShaderTarget::VulkanGLSL] = std::move(err);
             });
 
         CrossCompileOrCatchError(
@@ -270,11 +269,11 @@ public:
                 spirv_cross::CompilerMSL::Options options = {};
                 options.platform = spirv_cross::CompilerMSL::Options::iOS;
                 mslCompiler.set_msl_options(options);
-                Strings[(uint32_t)CompiledShaderTarget::iOS] = mslCompiler.compile();
+                Strings[(uint32_t)CompiledShaderTarget::iOSMTL] = mslCompiler.compile();
             },
             [&](std::string err) {
                 apemode::LogError("Failed to compile for iOS: {}", err);
-                Errors[(uint32_t)CompiledShaderTarget::iOS] = std::move(err);
+                Errors[(uint32_t)CompiledShaderTarget::iOSMTL] = std::move(err);
             });
 
         CrossCompileOrCatchError(
@@ -283,11 +282,11 @@ public:
                 spirv_cross::CompilerMSL::Options options = {};
                 options.platform = spirv_cross::CompilerMSL::Options::macOS;
                 mslCompiler.set_msl_options(options);
-                Strings[(uint32_t)CompiledShaderTarget::macOS] = mslCompiler.compile();
+                Strings[(uint32_t)CompiledShaderTarget::macOSMTL] = mslCompiler.compile();
             },
             [&](std::string err) {
                 apemode::LogError("Failed to compile for macOS: {}", err);
-                Errors[(uint32_t)CompiledShaderTarget::macOS] = std::move(err);
+                Errors[(uint32_t)CompiledShaderTarget::macOSMTL] = std::move(err);
             });
 
         CrossCompileOrCatchError(
@@ -297,11 +296,11 @@ public:
                 options.es = true;
                 options.version = 100;
                 glslCompiler.set_common_options(options);
-                Strings[(uint32_t)CompiledShaderTarget::ES2] = glslCompiler.compile();
+                Strings[(uint32_t)CompiledShaderTarget::ES2GLSL] = glslCompiler.compile();
             },
             [&](std::string err) {
                 apemode::LogError("Failed to compile for ES 2.0: {}", err);
-                Errors[(uint32_t)CompiledShaderTarget::ES2] = std::move(err);
+                Errors[(uint32_t)CompiledShaderTarget::ES2GLSL] = std::move(err);
             });
 
         CrossCompileOrCatchError(
@@ -311,11 +310,24 @@ public:
                 options.es = true;
                 options.version = 300;
                 glslCompiler.set_common_options(options);
-                Strings[(uint32_t)CompiledShaderTarget::ES3] = glslCompiler.compile();
+                Strings[(uint32_t)CompiledShaderTarget::ES3GLSL] = glslCompiler.compile();
             },
             [&](std::string err) {
                 apemode::LogError("Failed to compile for ES 3.0: {}", err);
-                Errors[(uint32_t)CompiledShaderTarget::ES3] = std::move(err);
+                Errors[(uint32_t)CompiledShaderTarget::ES3GLSL] = std::move(err);
+            });
+
+        CrossCompileOrCatchError(
+            [&] {
+                spirv_cross::CompilerHLSL hlslCompiler(Dwords.data(), Dwords.size());
+                spirv_cross::CompilerHLSL::Options options = {};
+                options.shader_model = 50;
+                hlslCompiler.set_hlsl_options(options);
+                Strings[(uint32_t)CompiledShaderTarget::HLSL] = hlslCompiler.compile();
+            },
+            [&](std::string err) {
+                apemode::LogError("Failed to compile for HLSL: {}", err);
+                Errors[(uint32_t)CompiledShaderTarget::HLSL] = std::move(err);
             });
     }
 
@@ -545,7 +557,7 @@ public:
         PrintReflection(Reflected);
     }
 
-    ReflectedShader&& GetReflection() override { return std::move(Reflected); };
+    const ReflectedShader& GetReflection() const override { return Reflected; };
     const uint8_t* GetBytePtr() const override { return reinterpret_cast<const uint8_t*>(Dwords.data()); }
     size_t GetByteCount() const override { return Dwords.size() << 2; }
 };

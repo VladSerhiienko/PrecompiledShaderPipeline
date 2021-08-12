@@ -49,6 +49,7 @@ struct CompiledShaderVariant {
     std::string macOS = "";
     std::string ES2 = "";
     std::string ES3 = "";
+    std::string HLSL = "";
     std::vector<uint8_t> Buffer = {};
     apemode::shp::ReflectedShader Reflected = {};
     cso::Shader Type = cso::Shader::Shader_MAX;
@@ -77,6 +78,7 @@ struct HashedCompiledShader : Hashed {
     uint32_t macOSIndex = 0;
     uint32_t ES2Index = 0;
     uint32_t ES3Index = 0;
+    uint32_t HLSLIndex = 0;
     uint32_t ReflectedIndex = 0;
 };
 
@@ -341,6 +343,7 @@ struct CompiledShaderCollection {
                                                                 compiledShader.ES3Index,
                                                                 compiledShader.iOSIndex,
                                                                 compiledShader.macOSIndex,
+                                                                compiledShader.HLSLIndex,
                                                                 cso::IR_SPIRV));
         }
 
@@ -393,6 +396,7 @@ struct CompiledShaderCollection {
             compiledShader.macOSIndex = GetStringIndex(cso.macOS);
             compiledShader.ES2Index = GetStringIndex(cso.ES2);
             compiledShader.ES3Index = GetStringIndex(cso.ES3);
+            compiledShader.HLSLIndex = GetStringIndex(cso.HLSL);
             compiledShader.ReflectedIndex = GetReflectedShaderIndex(GetHashedReflectionShader(cso.Reflected));
             compiledShader.Hash = uniqueBuffers[compiledShader.BufferIndex].Hash;
 
@@ -925,18 +929,20 @@ void DumpCompiledShader(const apemode::shp::ICompiledShader* compiledShader, std
     const std::string cachedES3 = dstFilePath + "-glsl-es3.txt";
     const std::string cachediOS = dstFilePath + "-msl-ios.txt";
     const std::string cachedmacOS = dstFilePath + "-msl-macos.txt";
+    const std::string cachedHLSL = dstFilePath + "-hlsl.txt";
 
     // clang-format off
     flatbuffers::SaveFile(dstFilePath.c_str(), (const char*)compiledShader->GetBytePtr(), compiledShader->GetByteCount(), true);
     // clang-format on
     
     DumpCompiledShaderTarget(compiledShader, cachedPreprocessed, apemode::shp::CompiledShaderTarget::Preprocessed);
-    DumpCompiledShaderTarget(compiledShader, cachedAssembly, apemode::shp::CompiledShaderTarget::Assembly);
-    DumpCompiledShaderTarget(compiledShader, cachedVulkan, apemode::shp::CompiledShaderTarget::Vulkan);
-    DumpCompiledShaderTarget(compiledShader, cachedES2, apemode::shp::CompiledShaderTarget::ES2);
-    DumpCompiledShaderTarget(compiledShader, cachedES3, apemode::shp::CompiledShaderTarget::ES3);
-    DumpCompiledShaderTarget(compiledShader, cachediOS, apemode::shp::CompiledShaderTarget::iOS);
-    DumpCompiledShaderTarget(compiledShader, cachedmacOS, apemode::shp::CompiledShaderTarget::macOS);
+    DumpCompiledShaderTarget(compiledShader, cachedAssembly, apemode::shp::CompiledShaderTarget::SpvAssembly);
+    DumpCompiledShaderTarget(compiledShader, cachedVulkan, apemode::shp::CompiledShaderTarget::VulkanGLSL);
+    DumpCompiledShaderTarget(compiledShader, cachedES2, apemode::shp::CompiledShaderTarget::ES2GLSL);
+    DumpCompiledShaderTarget(compiledShader, cachedES3, apemode::shp::CompiledShaderTarget::ES3GLSL);
+    DumpCompiledShaderTarget(compiledShader, cachediOS, apemode::shp::CompiledShaderTarget::iOSMTL);
+    DumpCompiledShaderTarget(compiledShader, cachedmacOS, apemode::shp::CompiledShaderTarget::macOSMTL);
+    DumpCompiledShaderTarget(compiledShader, cachedHLSL, apemode::shp::CompiledShaderTarget::HLSL);
 }
 
 std::unique_ptr<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::IShaderCompiler& shaderCompiler,
@@ -970,17 +976,18 @@ std::unique_ptr<CompiledShaderVariant> CompileShaderVariant(const apemode::shp::
                             compiledShader->GetBytePtr() + compiledShader->GetByteCount());
 
         cso.Preprocessed = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::Preprocessed);
-        cso.Assembly = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::Assembly);
-        cso.Vulkan = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::Vulkan);
-        cso.iOS = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::iOS);
-        cso.macOS = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::macOS);
-        cso.ES2 = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::ES2);
-        cso.ES3 = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::ES3);
+        cso.Assembly = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::SpvAssembly);
+        cso.Vulkan = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::VulkanGLSL);
+        cso.iOS = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::iOSMTL);
+        cso.macOS = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::macOSMTL);
+        cso.ES2 = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::ES2GLSL);
+        cso.ES3 = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::ES3GLSL);
+        cso.HLSL = compiledShader->GetSourceFor(apemode::shp::CompiledShaderTarget::HLSL);
         cso.Asset = srcFile;
         cso.IncludedFiles = includedFileSet.IncludedFiles;
         cso.DefinitionMap = macroDefinitions;
         cso.Definitions = macrosString;
-        cso.Reflected = std::move(compiledShader->GetReflection());
+        cso.Reflected = compiledShader->GetReflection();
         cso.Type = cso::Shader(eShaderType);
         
         DumpCompiledShader(compiledShader.get(), outputFolder, srcFile, macrosString);

@@ -169,6 +169,7 @@ struct CompiledShader {
     compiled_glsl_es3_string_index : uint;
     compiled_msl_ios_string_index : uint;
     compiled_msl_macos_string_index : uint;
+    compiled_hlsl_string_index : uint;
     type : IR;
 }
 

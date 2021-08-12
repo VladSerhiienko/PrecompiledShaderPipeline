@@ -574,5 +574,12 @@ set_target_properties(
     "$(OutDir)"
 )
 
+set_target_properties(
+    PrecompiledShaderPipelineTests
+    PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY
+    "$(OutDir)"
+)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(PREDEFINED_TARGETS_FOLDER "CustomTargets")

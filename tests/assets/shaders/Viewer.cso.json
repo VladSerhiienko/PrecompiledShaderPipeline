@@ -1,11 +1,11 @@
 {
     "commands": [
-
         {
             "srcFile": "SceneSkinnedTest.vert",
-            "shaderType": ["vert"]
+            "shaderType": [
+                "vert"
+            ]
         },
-        
         {
             "srcFile": "Skybox.frag",
             "shaderType": "frag"
@@ -14,7 +14,6 @@
             "srcFile": "Skybox.vert",
             "shaderType": "vert"
         },
-
         {
             "srcFile": "Debug.frag",
             "shaderType": "frag"
@@ -23,7 +22,6 @@
             "srcFile": "Debug.vert",
             "shaderType": "vert"
         },
-
         {
             "srcFile": "NuklearUI.frag",
             "shaderType": "frag"
@@ -32,34 +30,43 @@
             "srcFile": "NuklearUI.vert",
             "shaderType": "vert"
         },
-
         {
             "srcFile": "SceneSkinned.vert",
             "shaderType": "vert"
         },
-
         {
             "srcFile": "SceneSkinned8.vert",
             "shaderType": "vert"
         },
-
         {
             "srcFile": "UScene.frag",
             "shaderType": "frag"
         },
-        
         {
             "srcFile": "UScene.vert",
             "shaderType": "vert",
             "definitionGroups": [
                 [
-                    { "name": "" },
-                    { "name": "SKINNING", "value": "1" },
-                    { "name": "SKINNING8", "value": "1" }
+                    {
+                        "name": ""
+                    },
+                    {
+                        "name": "SKINNING",
+                        "value": "1"
+                    },
+                    {
+                        "name": "SKINNING8",
+                        "value": "1"
+                    }
                 ],
                 [
-                    { "name": "" },
-                    { "name": "QTANGENTS", "value": "1" }
+                    {
+                        "name": ""
+                    },
+                    {
+                        "name": "QTANGENTS",
+                        "value": "1"
+                    }
                 ]
             ]
         }

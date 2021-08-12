@@ -37,8 +37,6 @@ enum class ReflectedPrimitiveType {
 struct ReflectedStructMember;
 struct ReflectedType {
     ReflectedType();
-    ReflectedType(ReflectedType&&) noexcept;
-    ReflectedType& operator=(ReflectedType&&);
     ~ReflectedType();
 
     std::string Name = "";
@@ -51,7 +49,7 @@ struct ReflectedType {
     bool bIsArrayLengthStatic = false;
     uint32_t ArrayByteStride = 0;
     uint32_t EffectiveByteSize = 0;
-    std::vector<std::unique_ptr<ReflectedStructMember>> Members = {};
+    std::vector<std::shared_ptr<ReflectedStructMember>> Members = {};
 };
 
 struct ReflectedStructMember {
@@ -68,11 +66,6 @@ struct ReflectedMemoryRange {
 };
 
 struct ReflectedResource {
-    ReflectedResource() = default;
-    ReflectedResource(ReflectedResource&&) noexcept = default;
-    ReflectedResource& operator=(ReflectedResource&&) = default;
-    ~ReflectedResource() = default;
-
     std::string Name = "";
     ReflectedType Type = {};
     uint32_t DecorationDescriptorSet = -1;
@@ -93,11 +86,6 @@ struct ReflectedConstantDefaultValue {
 static_assert(sizeof(ReflectedConstantDefaultValue) == 8, "Caught size mismatch.");
 
 struct ReflectedConstant {
-    ReflectedConstant() = default;
-    ReflectedConstant(ReflectedConstant&&) noexcept = default;
-    ReflectedConstant& operator=(ReflectedConstant&&) = default;
-    ~ReflectedConstant() = default;
-
     std::string Name = "";
     std::string MacroName = "";
     ReflectedConstantDefaultValue DefaultValue = {};
@@ -109,11 +97,6 @@ struct ReflectedConstant {
 };
 
 struct ReflectedShader {
-    ReflectedShader() = default;
-    ReflectedShader(ReflectedShader&&) noexcept = default;
-    ReflectedShader& operator=(ReflectedShader&&) = default;
-    ~ReflectedShader() = default;
-
     std::string Name = "";
     std::vector<ReflectedConstant> Constants = {};
     std::vector<ReflectedResource> StageInputs = {};
@@ -128,7 +111,7 @@ struct ReflectedShader {
     std::vector<ReflectedResource> SeparateSamplers = {};
 };
 
-enum class CompiledShaderTarget { Preprocessed = 0, Assembly, Vulkan, ES2, ES3, iOS, macOS, Count };
+enum class CompiledShaderTarget { Preprocessed = 0, SpvAssembly, VulkanGLSL, ES2GLSL, ES3GLSL, iOSMTL, macOSMTL, HLSL, Count };
 
 class ICompiledShader {
 public:
@@ -139,7 +122,7 @@ public:
     virtual std::string_view GetSourceFor(CompiledShaderTarget target) const = 0;
     virtual std::string_view GetErrorFor(CompiledShaderTarget target) const = 0;
     virtual bool HasSourceFor(CompiledShaderTarget target) const = 0;
-    virtual ReflectedShader&& GetReflection() = 0;
+    virtual const ReflectedShader& GetReflection() const = 0;
 
     // clang-format off
     inline const uint32_t* GetDwordPtr() const { return reinterpret_cast<const uint32_t*>(GetBytePtr()); }
